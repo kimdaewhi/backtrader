@@ -62,7 +62,8 @@ def run_backtest():
     # ✅ Cerebro 플로팅 후 윈도우 크기 조정
     # ✅ 차트 스타일 수정
     figs = cerebro.plot(style="candlestick", 
-                        barup="#33A474", bardown="#E57373",  # 부드러운 초록/빨강
+                        # barup="#33A474", bardown="#E57373",  # 부드러운 초록/빨강
+                        barup="#dd3d3d", bardown="#3d3ddd",
                         grid=False, gridcolor="#DDDDDD",  # 연한 회색 그리드
                         volume=True)  # 거래량 표시
 
