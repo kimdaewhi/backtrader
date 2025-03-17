@@ -2,6 +2,8 @@ import backtrader as bt
 import yfinance as yf
 import pandas as pd
 import datetime
+import matplotlib
+import matplotlib.pyplot as plt
 from strategies.sma_crossover import SmaCrossover
 
 # ✅ 데이터 다운로드 함수
@@ -53,7 +55,27 @@ def run_backtest():
     print(f"최종 자본: {cerebro.broker.getvalue():,.2f} USD")
 
     # 8. 결과 차트 출력
-    cerebro.plot()
+    # fig = cerebro.plot(figsize=(16, 8), grid=False)[0][0]   # 차트 크기 조정 & 그리드 제거
+    matplotlib.rcParams["figure.figsize"] = (16, 8)  # 기본 차트 크기 설정
+    matplotlib.rcParams["figure.dpi"] = 100  # DPI 설정 (화질 개선)
+
+    # ✅ Cerebro 플로팅 후 윈도우 크기 조정
+    # ✅ 차트 스타일 수정
+    figs = cerebro.plot(style="candlestick", 
+                        barup="#33A474", bardown="#E57373",  # 부드러운 초록/빨강
+                        grid=False, gridcolor="#DDDDDD",  # 연한 회색 그리드
+                        volume=True)  # 거래량 표시
+
+    fig = figs[0][0]  # 첫 번째 Figure 가져오기
+    fig.patch.set_facecolor("#F5F5F5")  # 배경을 밝은 회색으로 변경
+
+    # 9. 윈도우 크기 조정 (Windows 전용)
+    fig_manager = plt.get_current_fig_manager()
+    fig_manager.window.geometry("1200x800")  # 윈도우 크기 조정
+
+
+
+
 
 if __name__ == "__main__":
     run_backtest()
