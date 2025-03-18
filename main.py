@@ -37,18 +37,16 @@ def run_backtest():
     cerebro.run()
     print(f"최종 자본: {cerebro.broker.getvalue():,.2f} USD")
 
+
     # 8. 결과 차트 출력
-    figs = cerebro.plot(figsize=(16, 8),  # 차트 크기 조정
-                        style="candlestick", 
-                        barup="#d32f2f", bardown="#1976d2",
-                        grid=False,
-                        volume=True,
-                        dpi=100)  # 거래량
+    plt.rcParams["figure.figsize"] = (16, 7)  # 차트 크기 조정
 
-    fig = figs[0][0]  # 첫 번째 Figure 가져오기
-    fig.patch.set_facecolor("#F5F5F5")  # 배경을 밝은 회색으로 변경
-
-
+    cerebro.plot(style="candlestick", 
+        barup="#d32f2f", bardown="#1976d2",
+        grid=False,
+        volume=True,
+        dpi=100
+    )
 
 
 if __name__ == "__main__":
