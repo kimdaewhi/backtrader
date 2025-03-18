@@ -39,17 +39,63 @@ def run_backtest():
 
 
     # 8. 결과 차트 출력
+    plt.style.use("seaborn-v0_8-bright")
     plt.rcParams["font.family"] = "NanumGothic"
     plt.rcParams["axes.unicode_minus"] = False
-    plt.style.use("seaborn-v0_8-bright")
     plt.rcParams["figure.figsize"] = (16, 7)  # 차트 크기 조정
+    plt.rcParams["legend.fontsize"] = 12  # 범례 글씨 크기 조정
+    plt.rcParams["axes.labelsize"] = 12  # 축 레이블 크기 조정
+    plt.rcParams["xtick.labelsize"] = 10  # X축 눈금 크기
+    plt.rcParams["ytick.labelsize"] = 10  # Y축 눈금 크기
 
-    cerebro.plot(style="candlestick", 
+    figs = cerebro.plot(style="candlestick", 
         barup="#d32f2f", bardown="#1976d2",
         grid=False,
         volume=True,
         dpi=100
     )
+
+    fig = figs[0][0]  # 첫 번째 Figure 가져오기
+
+    # ✅ 각 서브플롯(Axes) 개별 속성 변경
+    for ax in fig.axes:
+        ax.set_facecolor("#FFFFFF")  # 서브플롯 배경 흰색
+        ax.spines["top"].set_visible(False)  # 상단 테두리 제거
+        ax.spines["right"].set_visible(False)  # 우측 테두리 제거
+        ax.spines["left"].set_linewidth(1.2)  # 좌측 테두리 굵기 증가
+        ax.spines["bottom"].set_linewidth(1.2)  # 하단 테두리 굵기 증가
+
+        # ✅ X축, Y축 라벨 한글화
+        xlabel = ax.get_xlabel()
+        ylabel = ax.get_ylabel()
+        
+        label_map = {
+            "Open": "개장가",
+            "High": "최고가",
+            "Low": "최저가",
+            "Close": "종가",
+            "Volume": "거래량"
+        }
+
+        if xlabel in label_map:
+            ax.set_xlabel(label_map[xlabel])
+        if ylabel in label_map:
+            ax.set_ylabel(label_map[ylabel])
+
+        # ✅ 범례(레전드) 한글화
+        legend = ax.get_legend()
+        if legend:
+            for text in legend.get_texts():
+                legend_text = text.get_text()
+                if legend_text == "BuySell":
+                    text.set_text("매매")
+                elif legend_text == "Volume":
+                    text.set_text("거래량")
+                elif legend_text.startswith("SimpleMovingAverage"):
+                    text.set_text(legend_text.replace("SimpleMovingAverage", "단순 SMA"))
+
+    # ✅ 차트 업데이트
+    plt.draw()
 
 
 if __name__ == "__main__":

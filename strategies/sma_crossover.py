@@ -16,14 +16,13 @@ class SmaCrossover(bt.Strategy):
         self.sma_long.plotinfo.plotname = "단순 SMA(50일)"
 
         # Trades 관련 설정
-        self.plotinfo.trades = True
-        self.plotinfo.legend = True
-        self.plotinfo.plot_text = True
+        self.plotinfo.trades = True         # 매매 시점 표시
+        self.plotinfo.legend = True         # 범례 표시
+        self.plotinfo.plot_text = True      # 매매 시 수익/손실 표시
         self.plotinfo.plot_profit = True    # 순손익 표시
 
-        self.plotinfo.tradename = "매매 기록"
-        self.plotinfo.tradewins = "수익"
-        self.plotinfo.tradelosses = "손실"
+        self.plotinfo.tradewins = "수익"    # 수익 거래
+        self.plotinfo.tradelosses = "손실"  # 손실 거래
 
     
     def next(self):
