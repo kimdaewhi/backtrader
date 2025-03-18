@@ -39,6 +39,9 @@ def run_backtest():
 
 
     # 8. 결과 차트 출력
+    plt.rcParams["font.family"] = "NanumGothic"
+    plt.rcParams["axes.unicode_minus"] = False
+    plt.style.use("seaborn-v0_8-bright")
     plt.rcParams["figure.figsize"] = (16, 7)  # 차트 크기 조정
 
     cerebro.plot(style="candlestick", 
