@@ -24,6 +24,7 @@ class SmaCrossover(bt.Strategy):
         self.plotinfo.tradewins = "수익"    # 수익 거래
         self.plotinfo.tradelosses = "손실"  # 손실 거래
 
+
     
     def next(self):
         if self.sma_short[0] > self.sma_long[0] and self.sma_short[-1] <= self.sma_long[-1]:
