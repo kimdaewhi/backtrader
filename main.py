@@ -12,12 +12,12 @@ def run_backtest():
 
     # 백테스트 실행
     bt = Backtest(data, SmaCross, cash=10000, commission=.002)
-    
     stats = bt.run()
     
     print(stats)
     
     bt.plot()
 
+# main 함수 실행행
 if __name__ == "__main__":
     run_backtest()
