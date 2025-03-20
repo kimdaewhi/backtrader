@@ -1,33 +1,32 @@
-import backtrader as bt
+from backtesting import Strategy
+from backtesting.lib import crossover
+import pandas as pd
 
-class SmaCrossover(bt.Strategy):
-    # 단순 이동평균선 (SMA) 전략
-    params = (
-        ("short_period", 10), 
-        ("long_period", 50)
-    )
+def SMA(values, window):
+    """단순 이동평균 계산"""
+    return pd.Series(values).rolling(window=window).mean()
 
-    def __init__(self):
-        self.sma_short = bt.indicators.SimpleMovingAverage(self.data.close, period=self.params.short_period)
-        self.sma_long = bt.indicators.SimpleMovingAverage(self.data.close, period=self.params.long_period)
+class SmaCross(Strategy):
+    n1 = 10  # 단기 이동평균 기간
+    n2 = 50  # 장기 이동평균 기간
 
-        # plotinfo 설정
-        self.sma_short.plotinfo.plotname = "단순 SMA(10일)"
-        self.sma_long.plotinfo.plotname = "단순 SMA(50일)"
+    def init(self):
+        self.sma1 = self.I(SMA, self.data.Close, self.n1)
+        self.sma2 = self.I(SMA, self.data.Close, self.n2)
 
-        # Trades 관련 설정
-        self.plotinfo.trades = True         # 매매 시점 표시
-        self.plotinfo.legend = True         # 범례 표시
-        self.plotinfo.plot_text = True      # 매매 시 수익/손실 표시
-        self.plotinfo.plot_profit = True    # 순손익 표시
-
-        self.plotinfo.tradewins = "수익"    # 수익 거래
-        self.plotinfo.tradelosses = "손실"  # 손실 거래
-
-
-    
     def next(self):
-        if self.sma_short[0] > self.sma_long[0] and self.sma_short[-1] <= self.sma_long[-1]:
-            self.buy()
-        elif self.sma_short[0] < self.sma_long[0] and self.sma_short[-1] >= self.sma_long[-1]:
-            self.sell()
+        if crossover(self.sma1, self.sma2):  # 매수 신호
+            if not self.position:  # 포지션이 없을 때만 매수
+                size = min(int(self._broker._cash / self.data.Close[-1]), 10)  # 최대 10주 매수
+                self.buy(size=size)
+                print(f"🔴 [매수] 일자: {self.data.index[-1]}, 금액: {self.data.Close[-1]:.2f}, "
+                    f"매수 수량: {size}, 잔여 현금: {self._broker._cash:.2f}, "
+                    f"보유 주식 수량: {self.position.size:.2f}")
+        elif crossover(self.sma2, self.sma1):  # 매도 신호
+            if self.position:  # 포지션이 있을 때만 매도
+                size = max(int(self.position.size * 0.07), 1)  # 최소 거래 단위 설정
+                self.sell(size=size)
+                print(f"🔵 [매도] 일자: {self.data.index[-1]}, 금액: {self.data.Close[-1]:.2f}, "
+                    f"매도 수량: {size}, 잔여 현금: {self._broker._cash:.2f}, "
+                    f"보유 주식 수량: {self.position.size:.2f}")
+
