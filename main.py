@@ -4,8 +4,8 @@ from strategies.sma_crossover import SmaCross
 
 def run_backtest():
     symbol = 'ORCL'
-    start_date = '2018-01-01'
-    end_date = '2019-01-01'
+    start_date = '2020-01-01'
+    end_date = '2022-01-01'
 
     # 데이터 로드
     data = get_stock_data(symbol=symbol, start=start_date, end=end_date)
