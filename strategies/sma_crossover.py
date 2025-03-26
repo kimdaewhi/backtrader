@@ -16,8 +16,8 @@ def BollingerBands(values, window, num_std):
     return sma, upper_band, lower_band
 
 class SmaBollingerStrategy(Strategy):
-    n1 = 20  # 단기 이동평균 기간
-    n2 = 50  # 장기 이동평균 기간
+    n1 = 20  # 단기 이동평균 기간(1개월)
+    n2 = 60  # 장기 이동평균 기간(반기)
     bb_window = 20  # 볼린저밴드 윈도우
     num_std = 2  # 볼린저밴드 표준편차 배수
 
