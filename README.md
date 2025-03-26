@@ -89,8 +89,10 @@ https://backtesting.tistory.com/entry/Backtesting-Trading-Strategies-with-the-Py
 >베타 (0.13126)<br>
 >→ 전략이 시장 움직임에 얼마나 민감하게 반응하는지를 나타냅니다. 값이 
 >낮을수록 시장에 덜 민감합니다.
+><br>
+><br>
 >
->### 손실 지표
+>### 🟨 손실 지표
 >🔸**Max. Drawdown [%]**:<br>
 >최대 손실 (-3.61%)<br>
 >→ 전략 기간 중 계좌 잔고에서 가장 큰 하락 폭을 나타냅니다.
