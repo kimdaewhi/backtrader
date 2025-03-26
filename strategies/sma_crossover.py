@@ -7,24 +7,38 @@ def SMA(values, window):
     """단순 이동평균 계산"""
     return pd.Series(values).rolling(window=window).mean()
 
-def BollingerBands(values, window, num_std):
+def BollingerBands(values, window=20, num_std=2):
     """볼린저밴드 계산"""
+    """ values: 종가 시계열 데이터 """
+    """ window: 이동평균 기간(일반적으로 20일선 사용) """
+    """ num_std: 표준편차 배수 """
     sma = SMA(values, window)
     std = pd.Series(values).rolling(window=window).std()
     upper_band = sma + (std * num_std)
     lower_band = sma - (std * num_std)
     return sma, upper_band, lower_band
 
+def RSI(values, window=14):
+    """RSI 계산"""
+    """ values: 종가 시계열 데이터 """
+    """ window: RSI 계산 기간(일반적으로 14일 사용) """
+    delta = pd.Series(values).diff()    # 종가 차이 계산
+    gain = (delta.where(delta > 0, 0))
+    loss = (-delta.where(delta < 0, 0))
+    avg_gain = gain.rolling(window=window).mean()   # 직전 window일간의 평균 상승폭
+    avg_loss = loss.rolling(window=window).mean()   # 직전 window일간의 평균 하락폭
+    rs = avg_gain / avg_loss
+
+    return 100 - (100 / (1 + rs))   # RSI 계산
+
 class SmaBollingerStrategy(Strategy):
     n1 = 20  # 단기 이동평균 기간(1개월)
     n2 = 60  # 장기 이동평균 기간(반기)
-    bb_window = 20  # 볼린저밴드 윈도우
-    num_std = 2  # 볼린저밴드 표준편차 배수
 
     def init(self):
         self.sma1 = self.I(SMA, self.data.Close, self.n1)
         self.sma2 = self.I(SMA, self.data.Close, self.n2)
-        self.bb_mid, self.bb_upper, self.bb_lower = self.I(BollingerBands, self.data.Close, self.bb_window, self.num_std)
+        self.bb_mid, self.bb_upper, self.bb_lower = self.I(BollingerBands, self.data.Close)
 
     def next(self):
         # 현재 포지션의 평균 매수가 계산 (포지션이 있을 경우)
