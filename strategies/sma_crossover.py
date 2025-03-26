@@ -31,15 +31,66 @@ def RSI(values, window=14):
 
     return 100 - (100 / (1 + rs))   # RSI 계산
 
+
+
 class SmaBollingerStrategy(Strategy):
     n1 = 20  # 단기 이동평균 기간(1개월)
-    n2 = 60  # 장기 이동평균 기간(반기)
+    n2 = 60  # 중기 이동평균 기간(3개월(분기))
+
+    # Score 임계값 설정
+    buy_threshold = 1.5
+    sell_threshold = -1.0
+
+    sma_weight = 0.4  # SMA Crossover 가중치(최대 4점)
+    rsi_weight = 0.2  # RSI 가중치(최대 2점)
+    bb_weight = 0.3  # 볼린저 밴드 가중치(최대 3점)
+    volume_weight = 0.1  # 거래량 가중치(최대 1점)
 
     def init(self):
-        self.sma1 = self.I(SMA, self.data.Close, self.n1)
-        self.sma2 = self.I(SMA, self.data.Close, self.n2)
-        self.bb_mid, self.bb_upper, self.bb_lower = self.I(BollingerBands, self.data.Close)
+        self.sma1 = self.I(SMA, self.data.Close, self.n1)   # 단기 이동평균
+        self.sma2 = self.I(SMA, self.data.Close, self.n2)   # 중기 이동평균
+        self.bb_mid, self.bb_upper, self.bb_lower = self.I(BollingerBands, self.data.Close) # 볼린저 밴드 중심선 및 상/하단 밴드 
+        self.rsi = self.I(RSI, self.data.Close)  # RSI 계산
+    
+    def calculate_score(self):
+        score = 0 # 10점 만점
 
+        # 1. SMA Crossover 점수 계산(가중치 40%)
+        # 골든 크로스 -> + 1점, 데드 크로스 -> -1점
+        if crossover(self.sma1, self.sma2):  # 골든 크로스(score 범위 : 0 ~ 4)
+            if self.sma1[-5] != 0:
+                slope = (self.sma1[-1] - self.sma1[-5]) / self.sma1[-5]
+                score += np.clip(slope * 100, 0, 4) * self.sma_weight  # 최대 4점 (가중치 반영)
+
+        elif crossover(self.sma2, self.sma1):  # 데드 크로스(score 범위 : -4 ~ 0)
+            if self.sma1[-5] != 0:
+                slope = (self.sma1[-1] - self.sma1[-5]) / self.sma1[-5]
+                score += np.clip(slope * 100, -4, 0) * self.sma_weight  # 최소 -4점
+
+
+        # 2. 볼린저 밴드 점수 계산(가중치 30%)
+        bb_score = self.calculate_bb_score_z(self.data.Close[-1], self.bb_mid[-1], self.bb_upper[-1], self.bb_lower[-1])
+        score += bb_score * self.bb_weight
+
+    
+    def calculate_bb_score_z(current_price, bb_mid, bb_upper, bb_lower, num_std=2):
+        """볼린저 밴드 점수 계산"""
+        """ current_price: 현재 가격 """
+        """ bb_upper: 볼린저 밴드 상단 """
+        """ bb_lower: 볼린저 밴드 하단 """
+        """ z-score를 이용한 점수 계산 """
+        """ 최종적으로 산출된 z-score와 B.B 가중치를 곱하여 -3 ~ 3점으로 변환 """
+        bb_width = bb_upper - bb_lower
+        if bb_width == 0:
+            return 0
+        
+        std = bb_width / (2 * num_std) # 표준편차 계산
+        z = (current_price - bb_mid) / std
+
+        return float(np.clip(z * 3, -3, 3)) # 과매도 최대 3점, 과매수 최소 -3점
+    
+    
+    
     def next(self):
         # 현재 포지션의 평균 매수가 계산 (포지션이 있을 경우)
         if self.position:
