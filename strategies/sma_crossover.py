@@ -77,16 +77,21 @@ class SmaBollingerStrategy(Strategy):
         if crossover(self.sma1, self.sma2):  # 골든 크로스(score 범위 : 0 ~ 4)
             if self.sma1[-5] != 0:
                 slope = (self.sma1[-1] - self.sma1[-5]) / self.sma1[-5]
-                score += np.clip(slope * 100, 0, 4) * self.sma_weight  # 최대 4점 (가중치 반영)
+                sma_score = np.clip(slope * 100, 0, 4) * self.sma_weight  # 최대 4점 (가중치 반영)
+                print(f"sma_score : {sma_score}")
+                score += sma_score
 
         elif crossover(self.sma2, self.sma1):  # 데드 크로스(score 범위 : -4 ~ 0)
             if self.sma1[-5] != 0:
                 slope = (self.sma1[-1] - self.sma1[-5]) / self.sma1[-5]
-                score += np.clip(slope * 100, -4, 0) * self.sma_weight  # 최소 -4점
+                sma_score = np.clip(slope * 100, -4, 0) * self.sma_weight  # 최소 -4점
+                print(f"sma_score : {sma_score}")
+                score += sma_score
 
 
         # 2. 볼린저 밴드 점수 계산(가중치 30%)
         bb_score = calculate_bb_score_z(self.data.Close[-1], self.bb_mid[-1], self.bb_upper[-1], self.bb_lower[-1])
+        print(f"bb_score : {bb_score}")
         score += bb_score * self.bb_weight
 
     
