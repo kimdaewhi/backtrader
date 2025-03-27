@@ -112,6 +112,19 @@ class SmaBollingerStrategy(Strategy):
         print(f"rsi_score : {rsi_score}")
         score += rsi_score
 
+
+        # 4. 거래량 점수 계산(가중치 10%)
+        volume = self.data.Volume[-1]
+        avg_volume = pd.Series(self.data.Volume).rolling(window=20).mean()[-1] # 20일 평균 거래량 계산
+        
+        if avg_volume == 0:
+            volume_score = 0
+        else:
+            volume_ratio = (volume / avg_volume) / avg_volume
+            volume_score = np.clip(volume_ratio * 10, -1, 1)  # 최대 1점, 최소 -1점
+
+        score += volume_score
+
     
     
     
