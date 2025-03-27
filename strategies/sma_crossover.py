@@ -94,6 +94,24 @@ class SmaBollingerStrategy(Strategy):
         print(f"bb_score : {bb_score}")
         score += bb_score * self.bb_weight
 
+
+        # 3. RSI 점수 계산(가중치 20%)
+        # RSI 20 이하 -> -2점, RSI 80 이상 -> -2점
+        rsi_value = self.rsi[-1]
+        if rsi_value < 20:
+            rsi_score = 2.0
+        elif rsi_value < 30:
+            rsi_score = 1.0
+        elif rsi_value > 80:
+            rsi_score = -2.0
+        elif rsi_value > 70:
+            rsi_score = -1.0
+        else:
+            rsi_score = 0.0
+
+        print(f"rsi_score : {rsi_score}")
+        score += rsi_score
+
     
     
     
