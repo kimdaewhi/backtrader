@@ -1,7 +1,12 @@
 from backtesting import Strategy
 from backtesting.lib import crossover
+from utils.logger import write_log
 import pandas as pd
 import numpy as np
+
+file_score_log = "score_log.txt"
+file_trading_log = "trading_log.txt"
+
 
 def SMA(values, window):
     """단순 이동평균 계산"""
@@ -47,10 +52,10 @@ def calculate_sma_score(sma_short, sma_long, sensitivity=1000, sma_weight=0.4, m
     # 3. 크로스 여부 체크
     if crossover(sma_short, sma_long):
         score = (np.clip(slope_scaled / 25, 0, 4) * sma_weight) + bonus
-        print(f"👑 [골든크로스] slope: {slope:.5f} | score: {score:.2f}")
+        write_log(f"👑 [골든크로스] slope: {slope:.5f} | score: {score:.2f}", file_score_log)
     elif crossover(sma_long, sma_short):
         score = (np.clip(slope_scaled / 25, -4, 0) * sma_weight) - bonus
-        print(f"☠️ [데드크로스] slope: {slope:.5f} | score: {score:.2f}")
+        write_log(f"☠️ [데드크로스] slope: {slope:.5f} | score: {score:.2f}", file_score_log)
     else:
         # ✨ 선형 스프레드 점수화
         spread_score_raw = spread / max_spread  # 예: 0.03/0.05 = 0.6
@@ -155,14 +160,14 @@ class SmaBollingerStrategy(Strategy):
         score += volume_score
 
         # 최종 스코어링 결과 출력
-        print(
+        write_log(
             f"📅 [{self.data.index[-1].strftime('%Y.%m.%d')}] | "
             f"SMA: {sma_score:>5.2f} | "
             f"BB: {bb_score:>5.2f} | "
             f"RSI: {rsi_score:>5.2f} | "
             f"VOL: {volume_score:>5.2f} | "
             f"TOTAL: {score:>5.2f}"
-        )
+        , file_score_log)
 
         return score
 
@@ -223,13 +228,13 @@ class SmaBollingerStrategy(Strategy):
             size = int(self._broker._cash / current_price * 0.5)  # 50% 자금 투입 예시
             if size >= 1:
                 self.buy(size=size)
-                print(f"🟢 [매수] {self.data.index[-1].strftime('%Y.%m.%d')} | Score: {score:.2f} | 가격: {current_price:.2f} | 수량: {size}")
+                write_log(f"🟢 [매수] {self.data.index[-1].strftime('%Y.%m.%d')} | Score: {score:.2f} | 가격: {current_price:.2f} | 수량: {size}", file_trading_log)
 
         # ✅ 매도 조건: 스코어가 매도 임계값 이하이고 포지션 있음
         elif score <= self.sell_threshold and has_position:
             size = max(int(self.position.size * 0.5), 1)  # 보유 수량 50% 매도 예시
             self.sell(size=size)
-            print(f"🔴 [매도] {self.data.index[-1].strftime('%Y.%m.%d')} | Score: {score:.2f} | 가격: {current_price:.2f} | 수량: {size}")
+            write_log(f"🔴 [매도] {self.data.index[-1].strftime('%Y.%m.%d')} | Score: {score:.2f} | 가격: {current_price:.2f} | 수량: {size}", file_trading_log)
 
         # ✅ 손절 (-7%) / 익절 (+15%)
         if has_position:
@@ -238,4 +243,4 @@ class SmaBollingerStrategy(Strategy):
             if pnl_ratio <= 0.93 or pnl_ratio >= 1.15:
                 self.sell(size=self.position.size)
                 tag = "⚠️ [손절]" if pnl_ratio <= 0.93 else "✅ [익절]"
-                print(f"{tag} {self.data.index[-1].strftime('%Y.%m.%d')} | 가격: {current_price:.2f}")
+                write_log(f"{tag} {self.data.index[-1].strftime('%Y.%m.%d')} | 가격: {current_price:.2f}", file_trading_log)

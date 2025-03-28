@@ -1,6 +1,8 @@
 from backtesting import Backtest
 from utils.data_loader import get_stock_data
 from strategies.sma_crossover import SmaBollingerStrategy
+from utils.logger import write_log
+import pprint
 
 def run_backtest():
     symbol = 'ORCL'
@@ -18,7 +20,7 @@ def run_backtest():
     bt = Backtest(filter_data, SmaBollingerStrategy, cash=10000, commission=.002)
     stats = bt.run()
     
-    print(stats)
+    write_log(pprint.pformat(stats), "backtest_results.txt")
     
     bt.plot()
 
