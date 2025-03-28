@@ -33,36 +33,34 @@ def RSI(values, window=14):
 
 
 @staticmethod
-def calculate_sma_score(sma_short, sma_long, sensitivity, sma_weight=0.4):
-    """SMA Crossover 점수 계산"""
-    """ sma_short: 단기 이동평균 """
-    """ sma_long: 중기 이동평균 """
-    """ 5일간의 변화율을 계산하여 가중치 부여 """
-    """ 최종적으로 산출된 변화율과 SMA 가중치를 곱하여 -4 ~ 4점으로 변환 """
-
-    # 데이터 유효성 검사
-    if len(sma_short) < 6 or sma_short[-5] == 0 or np.isnan(sma_short[-5]) or np.isnan(sma_short[-1]):
+def calculate_sma_score(sma_short, sma_long, sensitivity=1000, sma_weight=0.4, max_spread=0.05, bonus=0.5):
+    if len(sma_short) < 6 or sma_short[-5] == 0 or np.isnan(sma_short[-1]) or np.isnan(sma_short[-5]):
         return 0
 
+    # 1. 기울기 계산
     slope = (sma_short[-1] - sma_short[-5]) / sma_short[-5]
-    slope_scaled = slope * sensitivity   # 변화율에 가중치 부여
+    slope_scaled = slope * sensitivity
 
-    # 너무 작은 노이즈 제거
-    if abs(slope_scaled) < 0.02:
-        slope_scaled = 0
+    # 2. 스프레드 계산
+    spread = (sma_short[-1] - sma_long[-1]) / sma_long[-1]
 
-     # 골든/데드 크로스 체크 후 점수 클리핑
+    # 3. 크로스 여부 체크
     if crossover(sma_short, sma_long):
-        sma_score = np.clip(slope_scaled, 0, 4) * sma_weight
-        print(f"👑 [골든크로스] SLOPE: {slope:.5f} | Scaled: {slope_scaled:.2f} | SMA Score: {sma_score:.2f}")
+        score = (np.clip(slope_scaled / 25, 0, 4) * sma_weight) + bonus
+        print(f"👑 [골든크로스] slope: {slope:.5f} | score: {score:.2f}")
     elif crossover(sma_long, sma_short):
-        sma_score = np.clip(slope_scaled, -4, 0) * sma_weight
-        print(f"☠️ [데드크로스] SLOPE: {slope:.5f} | Scaled: {slope_scaled:.2f} | SMA Score: {sma_score:.2f}")
+        score = (np.clip(slope_scaled / 25, -4, 0) * sma_weight) - bonus
+        print(f"☠️ [데드크로스] slope: {slope:.5f} | score: {score:.2f}")
     else:
-        sma_score = 0  # 크로스 없으면 점수 없음
+        # ✨ 선형 스프레드 점수화
+        spread_score_raw = spread / max_spread  # 예: 0.03/0.05 = 0.6
+        spread_score = np.clip(spread_score_raw, -1, 1) * 4 * sma_weight
+        score = spread_score
+        # print(f"📈 [No Cross] spread: {spread:.5f} | score: {score:.2f}")
 
-    # print(f"📉 SLOPE: {slope:.5f} | Scaled: {slope_scaled:.2f} | SMA Score: {sma_score:.2f}")
-    return sma_score
+    return score
+
+
 
 
 @staticmethod
@@ -84,8 +82,8 @@ def calculate_bb_score_z(current_price, bb_mid, bb_upper, bb_lower, num_std=2):
 
 
 class SmaBollingerStrategy(Strategy):
-    n1 = 20  # 단기 이동평균 기간(1개월)
-    n2 = 60  # 중기 이동평균 기간(3개월(분기))
+    n1 = 5  # 단기 이동평균 기간
+    n2 = 20  # 중기 이동평균 기간
 
     # Score 임계값 설정
     buy_threshold = 2.0
@@ -117,7 +115,7 @@ class SmaBollingerStrategy(Strategy):
         volume_score = 0    # Volume Score
 
         # ✅ 1. SMA Crossover 점수 계산(가중치 40%)
-        sma_sentivity = 300  # ⭐ 변화율 가중치
+        sma_sentivity = 800  # ⭐ 변화율 가중치
         sma_score = calculate_sma_score(self.sma1, self.sma2, sma_sentivity, self.sma_weight)
         score += sma_score
 
