@@ -4,10 +4,10 @@ from strategies.sma_crossover import SmaBollingerStrategy
 
 def run_backtest():
     symbol = 'ORCL'
-    start_date = '2020-01-01'
-    end_date = '2020-06-30'
+    start_date = '2018-01-01'
+    end_date = '2020-12-31'
 
-    fetch_start_date = '2019-10-01' # SMA60 계산산을 위한 프리롤 데이터 수집 시작일
+    fetch_start_date = '2017-10-01' # SMA60 계산산을 위한 프리롤 데이터 수집 시작일
 
     # 데이터 로드
     data = get_stock_data(symbol=symbol, start=fetch_start_date, end=end_date)
