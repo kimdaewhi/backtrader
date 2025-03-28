@@ -3,6 +3,8 @@ import os
 from datetime import datetime
 
 
+today = datetime.now().strftime("%Y%m%d")
+
 def setup_logger(name: str, log_file: str, level=logging.INFO) -> logging.Logger:
     """
     로거를 설정하고 반환합니다.
@@ -26,17 +28,16 @@ def setup_logger(name: str, log_file: str, level=logging.INFO) -> logging.Logger
     return logger
 
 
-def write_log(message:str, filename:str):
-    """
-    로그를 작성합니다.
-    """
-    today = datetime.now().strftime("%Y-%m-%d")
-    log_dir = os.path.join("results", f"result_{today}")
-    os.makedirs("results", exist_ok=True)
+def write_log(message: str, filename: str):
+    from datetime import datetime
+    import os
 
-    # 파일 경로 생성
-    path = os.path.join("results", filename)
+    today = datetime.now().strftime("%Y%m%d")
+    log_dir = os.path.join("results", f"result_{today}")  # ✅ result_20250328
+    os.makedirs(log_dir, exist_ok=True)
 
-    # 로그 작성
-    with open(path, "a", encoding="utf-8") as f:
+    # ✅ log_dir과 filename을 합쳐서 경로 구성
+    file_path = os.path.join(log_dir, filename)
+
+    with open(file_path, "a", encoding="utf-8") as f:
         f.write(message + "\n")
