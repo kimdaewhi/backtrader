@@ -213,3 +213,29 @@ class SmaBollingerStrategy(Strategy):
 
     def next(self):
         score = self.calculate_score()
+        current_price = self.data.Close[-1]
+
+        # 현재 포지션 존재 여부 확인
+        has_position = self.position.size > 0
+
+        # ✅ 매수 조건: 스코어가 매수 임계값 이상이고 포지션 없음
+        if score >= self.buy_threshold and not has_position:
+            size = int(self._broker._cash / current_price * 0.5)  # 50% 자금 투입 예시
+            if size >= 1:
+                self.buy(size=size)
+                print(f"🟢 [매수] {self.data.index[-1].strftime('%Y.%m.%d')} | Score: {score:.2f} | 가격: {current_price:.2f} | 수량: {size}")
+
+        # ✅ 매도 조건: 스코어가 매도 임계값 이하이고 포지션 있음
+        elif score <= self.sell_threshold and has_position:
+            size = max(int(self.position.size * 0.5), 1)  # 보유 수량 50% 매도 예시
+            self.sell(size=size)
+            print(f"🔴 [매도] {self.data.index[-1].strftime('%Y.%m.%d')} | Score: {score:.2f} | 가격: {current_price:.2f} | 수량: {size}")
+
+        # ✅ 손절 (-7%) / 익절 (+15%)
+        if has_position:
+            avg_entry = (self.position.pl + self.position.size * current_price) / self.position.size
+            pnl_ratio = current_price / avg_entry
+            if pnl_ratio <= 0.93 or pnl_ratio >= 1.15:
+                self.sell(size=self.position.size)
+                tag = "⚠️ [손절]" if pnl_ratio <= 0.93 else "✅ [익절]"
+                print(f"{tag} {self.data.index[-1].strftime('%Y.%m.%d')} | 가격: {current_price:.2f}")
