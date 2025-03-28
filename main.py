@@ -7,7 +7,7 @@ def run_backtest():
     start_date = '2020-01-01'
     end_date = '2020-06-30'
 
-    fetch_start_date = '2019-06-01' # SMA60 계산산을 위한 프리롤 데이터 수집 시작일
+    fetch_start_date = '2019-10-01' # SMA60 계산산을 위한 프리롤 데이터 수집 시작일
 
     # 데이터 로드
     data = get_stock_data(symbol=symbol, start=fetch_start_date, end=end_date)

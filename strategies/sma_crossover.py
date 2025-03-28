@@ -65,8 +65,8 @@ class SmaBollingerStrategy(Strategy):
 
     def init(self):
         """ 초기화 """
-        self.sma1 = self.I(SMA, self.data.Close, self.n1)   # 단기 이동평균
-        self.sma2 = self.I(SMA, self.data.Close, self.n2)   # 중기 이동평균
+        self.sma1 = self.I(SMA, self.data.Close, self.n1, overlay=True)   # 단기 이동평균
+        self.sma2 = self.I(SMA, self.data.Close, self.n2, overlay=True)   # 중기 이동평균
         self.bb_mid, self.bb_upper, self.bb_lower = self.I(BollingerBands, self.data.Close) # 볼린저 밴드 중심선 및 상/하단 밴드 
         self.rsi = self.I(RSI, self.data.Close)  # RSI 계산
     
@@ -84,18 +84,30 @@ class SmaBollingerStrategy(Strategy):
         volume_score = 0    # Volume Score
 
         # ✅ 1. SMA Crossover 점수 계산(가중치 40%)
-        # 골든 크로스 -> + 1점, 데드 크로스 -> -1점
-        if crossover(self.sma1, self.sma2):  # 골든 크로스(score 범위 : 0 ~ 4)
-            if self.sma1[-5] != 0:
-                slope = (self.sma1[-1] - self.sma1[-5]) / self.sma1[-5] # 5일간의 이동평균 기울기 계산
-                sma_score = np.clip(slope * 100, 0, 4) * self.sma_weight  # 최대 4점 (가중치 반영)
-                score += sma_score
+        # 5일간의 변화율을 계산하여 가중치 부여
+        if self.sma1[-5] != 0:
+            slope = (self.sma1[-1] - self.sma1[-5]) / self.sma1[-5]
+            slope_scaled = slope * 400  # 민감도 조정: 실험 범위 300 ~ 600 추천
 
-        elif crossover(self.sma2, self.sma1):  # 데드 크로스(score 범위 : -4 ~ 0)
-            if self.sma1[-5] != 0:
-                slope = (self.sma1[-1] - self.sma1[-5]) / self.sma1[-5] # 5일간의 이동평균 기울기 계산
-                sma_score = np.clip(slope * 100, -4, 0) * self.sma_weight  # 최소 -4점
-                score += sma_score
+            # 너무 작은 노이즈 제거
+            if abs(slope_scaled) < 0.02:
+                slope_scaled = 0
+
+            # 골든/데드 크로스 체크 후 점수 클리핑
+            if crossover(self.sma1, self.sma2):
+                sma_score = np.clip(slope_scaled, 0, 4) * self.sma_weight
+                print(f"👑 [골든크로스] SLOPE: {slope:.5f} | Scaled: {slope_scaled:.2f} | SMA Score: {sma_score:.2f}")
+            elif crossover(self.sma2, self.sma1):
+                sma_score = np.clip(slope_scaled, -4, 0) * self.sma_weight
+                print(f"☠️ [데드크로스] SLOPE: {slope:.5f} | Scaled: {slope_scaled:.2f} | SMA Score: {sma_score:.2f}")
+            else:
+                sma_score = 0  # 크로스 없으면 점수 없음
+
+            score += sma_score
+
+
+        # print(f"📉 SLOPE: {slope:.5f} | Scaled: {slope_scaled:.2f} | SMA Score: {sma_score:.2f}")
+        score += sma_score
 
 
         # ✅ 2. 볼린저 밴드 점수 계산(가중치 30%)
