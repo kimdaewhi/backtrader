@@ -1,11 +1,12 @@
 from backtesting import Strategy
 from backtesting.lib import crossover
 from utils.logger import write_log
+from config.config import PathConfig, backtesting_config
 import pandas as pd
 import numpy as np
 
-file_score_log = "score_log.txt"
-file_trading_log = "trading_log.txt"
+file_score_log = f"{backtesting_config.SYMBOL}_{PathConfig.FILE_SCORE_LOG}"
+file_trading_log = f"{backtesting_config.SYMBOL}_{PathConfig.FILE_TRADING_LOG}"
 
 
 def SMA(values, window):

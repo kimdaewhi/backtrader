@@ -1,9 +1,9 @@
 import logging
 import os
 from datetime import datetime
+from config.config import PathConfig
 
 
-today = datetime.now().strftime("%Y%m%d")
 
 def setup_logger(name: str, log_file: str, level=logging.INFO) -> logging.Logger:
     """
@@ -29,15 +29,10 @@ def setup_logger(name: str, log_file: str, level=logging.INFO) -> logging.Logger
 
 
 def write_log(message: str, filename: str):
-    from datetime import datetime
-    import os
-
-    today = datetime.now().strftime("%Y%m%d")
-    log_dir = os.path.join("results", f"result_{today}")  # ✅ result_20250328
-    os.makedirs(log_dir, exist_ok=True)
+    os.makedirs(PathConfig.RESULT_DIR, exist_ok=True)
 
     # ✅ log_dir과 filename을 합쳐서 경로 구성
-    file_path = os.path.join(log_dir, filename)
+    file_path = os.path.join(PathConfig.RESULT_DIR, filename)
 
     with open(file_path, "a", encoding="utf-8") as f:
         f.write(message + "\n")
