@@ -1,7 +1,8 @@
 from backtesting import Backtest
 from utils.data_loader import get_stock_data
 from strategies.sma_crossover import SmaBollingerStrategy
-from utils.logger import write_log
+from utils.logger import write_log, today
+import os
 import pprint
 
 def run_backtest():
@@ -22,7 +23,11 @@ def run_backtest():
     
     write_log(pprint.pformat(stats), "backtest_results.txt")
     
-    bt.plot()
+    result_dir = os.path.join("results", f"result_{today}")
+    os.makedirs(result_dir, exist_ok=True)
+    html_path = os.path.join(result_dir, f"{symbol}_backtest_{today}.html")
+
+    bt.plot(filename=html_path)
 
 # main 함수 실행행
 if __name__ == "__main__":
