@@ -35,8 +35,8 @@ class BacktestConfig(BaseSettings):
     COMMISSION: float = 0.002  # 거래 수수료
 
     # 기간
-    BACKTEST_START: str = "2020-01-01"
-    BACKTEST_END: str = "2022-12-31"
+    BACKTEST_START: str = "2022-01-01"
+    BACKTEST_END: str = "2024-12-31"
 
     # yfinance 데이터 fetch용 (이건 SMA 등 계산 고려한 기간 포함)
     FETCH_START: str = "2019-06-01"

@@ -13,6 +13,10 @@ def SMA(values, window):
     """단순 이동평균 계산"""
     return pd.Series(values).rolling(window=window).mean()
 
+def EMA(values, window):
+    """지수 이동평균 계산"""
+    return pd.Series(values).ewm(span=window, adjust=False).mean()
+
 def BollingerBands(values, window=20, num_std=2):
     """볼린저밴드 계산"""
     """ values: 종가 시계열 데이터 """
@@ -37,9 +41,36 @@ def RSI(values, window=14):
 
     return 100 - (100 / (1 + rs))   # RSI 계산
 
+def ADX(high, low, close, period=14):
+    """ADX 계산"""
+    """ high: 고가 시계열 데이터 """
+    """ low: 저가 시계열 데이터 """
+    """ close: 종가 시계열 데이터 """
+    """ period: ADX 계산 기간(일반적으로 14일 사용) """
+    high = pd.Series(high)
+    low = pd.Series(low)
+    close = pd.Series(close)
+
+    plus_dm = high.diff()
+    minus_dm = low.diff().abs()
+
+    tr1 = high - low
+    tr2 = (high - close.shift()).abs()
+    tr3 = (low - close.shift()).abs()
+    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
+
+    atr = tr.rolling(window=period).mean()
+
+    plus_di = 100 * (plus_dm.rolling(window=period).mean() / atr)
+    minus_di = 100 * (minus_dm.rolling(window=period).mean() / atr)
+    dx = (abs(plus_di - minus_di)/ (plus_di + minus_di)) * 100
+    adx = dx.rolling(window=period).mean()
+
+    return adx
+
 
 @staticmethod
-def calculate_sma_score(sma_short, sma_long, sensitivity=1000, sma_weight=0.4, max_spread=0.05, bonus=0.5):
+def calc_sma_score(sma_short, sma_long, sensitivity=1000, sma_weight=0.4, max_spread=0.05, bonus=0.5):
     if len(sma_short) < 6 or sma_short[-5] == 0 or np.isnan(sma_short[-1]) or np.isnan(sma_short[-5]):
         return 0
 
@@ -67,10 +98,8 @@ def calculate_sma_score(sma_short, sma_long, sensitivity=1000, sma_weight=0.4, m
     return score
 
 
-
-
 @staticmethod
-def calculate_bb_score_z(current_price, bb_mid, bb_upper, bb_lower, num_std=2):
+def calc_bb_score_z(current_price, bb_mid, bb_upper, bb_lower, num_std=2):
     """볼린저 밴드 점수 계산"""
     """ current_price: 현재 가격 """
     """ bb_upper: 볼린저 밴드 상단 """
@@ -87,25 +116,109 @@ def calculate_bb_score_z(current_price, bb_mid, bb_upper, bb_lower, num_std=2):
     return float(np.clip(z * 3, -3, 3)) # 과매도 최대 3점, 과매수 최소 -3점
 
 
+@staticmethod
+def calc_rsi_score(rsi_value):
+    """ RSI 점수 계산 """
+    """ rsi_value: RSI 값 """
+    """ RSI 20 이하 -> -2점, RSI 80 이상 -> -2점 """
+    if rsi_value < 20:
+        rsi_score = 2.0
+    elif rsi_value < 30:
+        rsi_score = 1.0
+    elif rsi_value > 80:
+        rsi_score = -2.0
+    elif rsi_value > 70:
+        rsi_score = -1.0
+    else:
+        rsi_score = 0.0
+
+    return rsi_score
+
+
+@staticmethod
+def calc_volume_score(volume, avg_volume, sensitivity=10):
+    """ 거래량 점수 계산 """
+    """ volume: 현재 거래량 """
+    """ avg_volume: 평균 거래량 """
+    """ sensitivity: 민감도 조정 """
+    if avg_volume == 0:
+        volume_score = 0
+    else:
+        volume_ratio = (volume - avg_volume) / avg_volume # 평균 거래량 대비 거래량 비율
+        volume_score = np.clip(volume_ratio * 10, -1, 1)  # 최대 1점, 최소 -1점
+
+    return volume_score
+
+
+@staticmethod
+def calc_ema_adx_score(ema_short, ema_long, adx_values, sensitivity=800):
+    """
+    EMA 간 스프레드 + ADX 추세 강도 기반 스코어 계산
+    - EMA 점수 (60%), ADX 점수 (40%) 합산
+    - 최종 점수는 -4 ~ 4 범위로 조정
+    """
+    if (
+        len(ema_short) < 1 or len(ema_long) < 1 or len(adx_values) < 1 or
+        np.isnan(ema_short[-1]) or np.isnan(ema_long[-1]) or np.isnan(adx_values[-1])
+    ):
+        return 0.0
+
+    # ✅ EMA 스프레드 계산
+    spread = (ema_short[-1] - ema_long[-1]) / ema_long[-1]
+    spread_scaled = spread * sensitivity
+    ema_score = np.clip(spread_scaled, -2.4, 2.4)  # EMA는 전체의 60%
+
+    # ✅ ADX 점수 계산
+    adx_value = adx_values[-1]
+    if adx_value >= 25:
+        adx_score = 1.6  # 40% of 4
+    elif adx_value <= 15:
+        adx_score = -1.6
+    else:
+        normalized = (adx_value - 15) / 10  # 0~1 범위
+        adx_score = (normalized * 3.2) - 1.6  # -1.6 ~ +1.6
+
+    # ✅ 최종 스코어: -4 ~ +4
+    total_score = ema_score + adx_score
+    return float(np.clip(total_score, -4.0, 4.0))
+
+
+
+@staticmethod
+def calc_macd_hist_score(macd, signal, weight=0.2):
+    """ MACD 히스토그램 기반 스코어 계산 """
+    """ macd: MACD 라인 """
+    """ signal: 시그널 라인 """
+    """ 가중치 0.2 → 점수 -2 ~ 2 범위로 클리핑 """
+    hist = macd[-1] - signal[-1]
+    hist_score = np.clip(hist * 10, -2, 2)  # 민감도 10
+    return float(hist_score * weight)
+
+
 class SmaBollingerStrategy(Strategy):
-    n1 = 5  # 단기 이동평균 기간
-    n2 = 20  # 중기 이동평균 기간
+    n1 = 12  # 단기 이동평균 기간
+    n2 = 26  # 중기 이동평균 기간
 
     # Score 임계값 설정
-    buy_threshold = 2.0
+    buy_threshold = 1.5
     sell_threshold = -1.5
 
-    sma_weight = 0.4  # SMA Crossover 가중치(최대 4점)
-    bb_weight = 0.3  # 볼린저 밴드 가중치(최대 3점)
+    # sma_weight = 0.4  # SMA Crossover 가중치(최대 4점)
+    # bb_weight = 0.3  # 볼린저 밴드 가중치(최대 3점)
     # rsi_weight = 0.2  # RSI 가중치(최대 2점)
     # volume_weight = 0.1  # 거래량 가중치(최대 1점)
 
     def init(self):
         """ 초기화 """
-        self.sma1 = self.I(SMA, self.data.Close, self.n1, overlay=True)   # 단기 이동평균
-        self.sma2 = self.I(SMA, self.data.Close, self.n2, overlay=True)   # 중기 이동평균
-        self.bb_mid, self.bb_upper, self.bb_lower = self.I(BollingerBands, self.data.Close, overlay=True) # 볼린저 밴드 중심선 및 상/하단 밴드 
+        # self.sma1 = self.I(SMA, self.data.Close, self.n1, overlay=True)   # 단기 이동평균
+        # self.sma2 = self.I(SMA, self.data.Close, self.n2, overlay=True)   # 중기 이동평균
+        # self.bb_mid, self.bb_upper, self.bb_lower = self.I(BollingerBands, self.data.Close, overlay=True)
+        self.ema1 = self.I(EMA, self.data.Close, self.n1, overlay=True)
+        self.ema2 = self.I(EMA, self.data.Close, self.n2, overlay=True)
+        self.adx = self.I(ADX, self.data.High, self.data.Low, self.data.Close, overlay=False)  # ADX 계산
         self.rsi = self.I(RSI, self.data.Close, overlay=False)  # RSI 계산
+        self.macd = self.I(lambda x: EMA(x, 12) - EMA(x, 26), self.data.Close, overlay=False)
+        self.signal = self.I(lambda x: EMA(x, 9), self.macd, overlay=False)
     
 
     def calculate_score(self):
@@ -115,107 +228,45 @@ class SmaBollingerStrategy(Strategy):
         """ 가중치 : SMA Crossover(40%), 볼린저 밴드(30%), RSI(20%), Volume(10%) """
 
         score = 0           # 총합 Score
-        sma_score = 0       # SMA Crossover Score
-        bb_score = 0        # Bolinger Band Score
+        ema_adx_score = 0   # EMA Crossover + ADX Score
+        macd_score = 0      # MACD Score
         rsi_score = 0       # RSI Score
         volume_score = 0    # Volume Score
 
-        # ✅ 1. SMA Crossover 점수 계산(가중치 40%)
-        sma_sentivity = 800  # ⭐ 변화율 가중치
-        sma_score = calculate_sma_score(self.sma1, self.sma2, sma_sentivity, self.sma_weight)
-        score += sma_score
+        # ✅ 1. EMA Crossover 점수 계산(가중치 40%)
+        ema_adx_score = calc_ema_adx_score(self.ema1, self.ema2, self.adx)
+        score += ema_adx_score
 
-
-        # ✅ 2. 볼린저 밴드 점수 계산(가중치 30%)
-        bb_score_row = calculate_bb_score_z(self.data.Close[-1], self.bb_mid[-1], self.bb_upper[-1], self.bb_lower[-1])
-        bb_score += bb_score_row * self.bb_weight
-        score += bb_score
+        # ✅ 2. MACD 히스토그램 점수(가중치 20%)
+        macd_score = calc_macd_hist_score(self.macd, self.signal)
+        score += macd_score
 
 
         # ✅ 3. RSI 점수 계산(가중치 20%)
         # RSI 20 이하 -> -2점, RSI 80 이상 -> -2점
-        rsi_value = self.rsi[-1]
-        if rsi_value < 20:
-            rsi_score = 2.0
-        elif rsi_value < 30:
-            rsi_score = 1.0
-        elif rsi_value > 80:
-            rsi_score = -2.0
-        elif rsi_value > 70:
-            rsi_score = -1.0
-        else:
-            rsi_score = 0.0
-
+        rsi_score = calc_rsi_score(self.rsi[-1])
         score += rsi_score
 
 
         # ✅ 4. 거래량 점수 계산(가중치 10%)
         volume = self.data.Volume[-1]
-        avg_volume = pd.Series(self.data.Volume).rolling(window=20).mean().iloc[-1] # 20일 평균 거래량 계산
-        
-        if avg_volume == 0:
-            volume_score = 0
-        else:
-            volume_ratio = (volume - avg_volume) / avg_volume # 평균 거래량 대비 거래량 비율
-            volume_score = np.clip(volume_ratio * 10, -1, 1)  # 최대 1점, 최소 -1점
+        avg_volume = pd.Series(self.data.Volume).rolling(window=20).mean().iloc[-1]
+        volume_score = calc_volume_score(volume, avg_volume)
         score += volume_score
+
 
         # 최종 스코어링 결과 출력
         write_log(
             f"📅 [{self.data.index[-1].strftime('%Y.%m.%d')}] | "
-            f"SMA: {sma_score:>5.2f} | "
-            f"BB: {bb_score:>5.2f} | "
+            f"EMA: {ema_adx_score:>5.2f} | "
+            f"MACD Historgram: {macd_score:>5.2f} | "
             f"RSI: {rsi_score:>5.2f} | "
             f"VOL: {volume_score:>5.2f} | "
             f"TOTAL: {score:>5.2f}"
         , file_score_log)
 
         return score
-
     
-    
-    
-    # def next(self):
-    #     # 현재 포지션의 평균 매수가 계산 (포지션이 있을 경우)
-    #     if self.position:
-    #         avg_entry_price = (self.position.pl + self.position.size * self.data.Close[-1]) / self.position.size
-    #     else:
-    #         avg_entry_price = None
-
-    #     # ✅ 매수 조건:
-    #     # 1) SMA 20이 SMA 50을 상향 돌파 OR 볼린저 밴드 하단 근처
-    #     # 2) 현재 가격이 볼린저 밴드 하단보다 5% 이내 거리
-    #     if (crossover(self.sma1, self.sma2) or self.data.Close[-1] < self.bb_lower[-1] * 1.05):
-    #         max_size = int(self._broker._cash / self.data.Close[-1])  # 최대 구매 가능 수량
-    #         size = min(max_size, 5)  # 최대 5주까지 매수
-    #         if size >= 1:  # ✅ 최소 1주 이상 매수 보장
-    #             self.buy(size=size)
-    #             print(f"🔴 [매수] {self.data.index[-1]} | 가격: {self.data.Close[-1]:.2f}, "
-    #                   f"매수 수량: {size}, 잔여 현금: {self._broker._cash:.2f}")
-
-    #     # ✅ 매도 조건:
-    #     # 1) SMA 20이 SMA 50을 하향 돌파 OR 볼린저 밴드 상단 근처
-    #     # 2) 현재 가격이 볼린저 밴드 상단보다 5% 이내 거리
-    #     if self.position.size > 0:  # ✅ 보유 주식이 있을 때만 매도
-    #         if (crossover(self.sma2, self.sma1) or self.data.Close[-1] > self.bb_upper[-1] * 0.95):
-    #             size = max(int(self.position.size * 0.07), 1)  # ✅ 최소 1주 보장
-    #             size = min(size, self.position.size)  # ✅ 포지션보다 많이 매도하지 않도록 제한
-    #             if size >= 1:  # ✅ 최소 1주 이상 매도 보장
-    #                 self.sell(size=size)
-    #                 print(f"🔵 [매도] {self.data.index[-1]} | 가격: {self.data.Close[-1]:.2f}, "
-    #                       f"매도 수량: {size}, 잔여 현금: {self._broker._cash:.2f}")
-
-    #     # ✅ 손절 (-7%) 및 익절 (+15%)
-    #     if self.position and avg_entry_price:
-    #         if self.data.Close[-1] / avg_entry_price < 0.93:  # 손절 기준
-    #             size = max(int(self.position.size), 1)  # ✅ 최소 1주 보장
-    #             self.sell(size=size)  # 보유 주식 전량 매도
-    #             print(f"⚠️ [손절] {self.data.index[-1]} | 가격: {self.data.Close[-1]:.2f} | 보유 주식 전량 매도")
-
-    #         if self.data.Close[-1] / avg_entry_price > 1.15:  # 익절 기준
-    #             size = max(int(self.position.size), 1)  # ✅ 최소 1주 보장
-    #             self.sell(size=size)  # 보유 주식 전량 매도
-    #             print(f"✅ [익절] {self.data.index[-1]} | 가격: {self.data.Close[-1]:.2f} | 보유 주식 전량 매도")
 
     def next(self):
         score = self.calculate_score()
