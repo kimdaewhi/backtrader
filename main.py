@@ -1,17 +1,17 @@
 from backtesting import Backtest
 from utils.data_loader import get_stock_data
-from strategies.sma_crossover import SmaBollingerStrategy
-from utils.logger import write_log_csv
+from strategies.sma_crossover import SmaBollingerStrategy, score_log_record, trading_log_record
+from utils.logger import write_log, write_log_xlsx
 from config.config import PathConfig, backtesting_config
 import os
 import pandas as pd
+import pprint
 
 
-def convert_stats_to_row_list(stats_obj):
-    """ stats 객체를 [{항목: ..., 값: ...}, ...] 형식으로 변환 """
+def convert_stats_to_vertical_dict(stats_obj):
+    """ stats 객체를 {항목명: 값} 형태의 딕셔너리로 변환 """
     series = pd.Series(stats_obj)
-    row_list = [{"항목": k, "값": str(v) if not isinstance(v, (str, int, float)) else v} for k, v in series.items()]
-    return row_list
+    return {k: str(v) if not isinstance(v, (str, int, float)) else v for k, v in series.items()}
 
 
 def run_backtest():
@@ -25,7 +25,7 @@ def run_backtest():
     # 🔥 로그 초기화: 기존 로그 파일 삭제
     os.makedirs(PathConfig.RESULT_DIR, exist_ok=True)
 
-    for log_file in [f"{symbol}_{PathConfig.CSV_SCORE_LOG}", f"{symbol}_{PathConfig.CSV_TRADING_LOG}", f"{symbol}_{PathConfig.CSV_BACKTEST_LOG}"]:
+    for log_file in [f"{symbol}_{PathConfig.XLSX_SCORE_LOG}", f"{symbol}_{PathConfig.XLSX_TRADING_LOG}", f"{symbol}_{PathConfig.TXT_BACKTEST_LOG}"]:
         path = os.path.join(PathConfig.RESULT_DIR, log_file)
         if os.path.exists(path):
             os.remove(path)
@@ -41,12 +41,17 @@ def run_backtest():
     bt = Backtest(filter_data, SmaBollingerStrategy, cash=10000, commission=.002)
     stats = bt.run()
 
-    # ✅ stats만 dict로 정제해서 csv로 기록
-    stats_dict = convert_stats_to_row_list(stats)
-    # ✅ 한 줄씩 기록 (공통 csv 함수 사용)
-    for row in stats_dict:
-        write_log_csv(row, f"{symbol}_{PathConfig.CSV_BACKTEST_LOG}")
-    # write_log(pprint.pformat(stats), f"{symbol}_{PathConfig.FILE_BACKTEST_LOG}")
+    # 스코어 로그 기록
+    score_df = pd.DataFrame(score_log_record, columns=["date", "EMA", "MACD", "RSI", "VOL", "TOTAL"])
+    write_log_xlsx(score_df, f"{symbol}_{PathConfig.XLSX_SCORE_LOG}", template="score")
+
+    # 트레이딩 로그 기록
+    trading_df = pd.DataFrame(trading_log_record, columns=["date", "action", "score", "price", "size"])
+    write_log_xlsx(trading_df, f"{symbol}_{PathConfig.XLSX_TRADING_LOG}", template="trading")
+
+    # 백테스트 결과 기록(text 파일)
+    write_log(pprint.pformat(stats), f"{backtesting_config.SYMBOL}_{PathConfig.TXT_BACKTEST_LOG}")
+
     
     os.makedirs(PathConfig.RESULT_DIR, exist_ok=True)
     html_path = os.path.join(PathConfig.RESULT_DIR, f"{symbol}_backtest_{PathConfig.TODAY}.html")

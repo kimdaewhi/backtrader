@@ -1,12 +1,16 @@
 from backtesting import Strategy
 from backtesting.lib import crossover
-from utils.logger import write_log, write_log_csv
+from utils.logger import write_log, write_log_xlsx
 from config.config import PathConfig, backtesting_config
 import pandas as pd
 import numpy as np
 
-file_score_log = f"{backtesting_config.SYMBOL}_{PathConfig.CSV_SCORE_LOG}"
-file_trading_log = f"{backtesting_config.SYMBOL}_{PathConfig.CSV_TRADING_LOG}"
+file_score_log = f"{backtesting_config.SYMBOL}_{PathConfig.XLSX_SCORE_LOG}"
+file_trading_log = f"{backtesting_config.SYMBOL}_{PathConfig.XLSX_TRADING_LOG}"
+
+
+score_log_record = []   # 스코어 로그 기록용 DataFrame
+trading_log_record = [] # 거래 로그 기록용 DataFrame
 
 
 def SMA(values, window):
@@ -264,14 +268,14 @@ class SmaBollingerStrategy(Strategy):
         #     f"VOL: {volume_score:>5.2f} | "
         #     f"TOTAL: {score:>5.2f}"
         # , file_score_log)
-        write_log_csv({
+        score_log_record.append({
             "date": self.data.index[-1].strftime('%Y.%m.%d'),
             "EMA": round(ema_adx_score, 2),
             "MACD": round(macd_score, 2),
             "RSI": round(rsi_score, 2),
             "VOL": round(volume_score, 2),
             "TOTAL": round(score, 2)
-        }, file_score_log)
+        })
 
         return score
     
@@ -288,27 +292,25 @@ class SmaBollingerStrategy(Strategy):
             size = int(self._broker._cash / current_price * 0.5)  # 50% 자금 투입 예시
             if size >= 1:
                 self.buy(size=size)
-                # write_log(f"🟢 [매수] {self.data.index[-1].strftime('%Y.%m.%d')} | Score: {score:.2f} | 가격: {current_price:.2f} | 수량: {size}", file_trading_log)
-                write_log_csv({
+                trading_log_record.append({
                     "date": self.data.index[-1].strftime('%Y.%m.%d'),
-                    "action": "🟢 [매수]",
+                    "action": "buy",
                     "score": round(score, 2),
                     "price": round(current_price, 2),
                     "size": size
-                }, file_trading_log)
+                })
 
         # ✅ 매도 조건: 스코어가 매도 임계값 이하이고 포지션 있음
         elif score <= self.sell_threshold and has_position:
             size = max(int(self.position.size * 0.5), 1)  # 보유 수량 50% 매도 예시
             self.sell(size=size)
-            # write_log(f"🔴 [매도] {self.data.index[-1].strftime('%Y.%m.%d')} | Score: {score:.2f} | 가격: {current_price:.2f} | 수량: {size}", file_trading_log)
-            write_log_csv({
+            trading_log_record.append({
                 "date": self.data.index[-1].strftime('%Y.%m.%d'),
-                "action": "🔴 [매도]",
+                "action": "sell",
                 "score": round(score, 2),
                 "price": round(current_price, 2),
                 "size": size
-            }, file_trading_log)
+            })
 
         # ✅ 손절 (-7%) / 익절 (+15%)
         if has_position:
@@ -316,12 +318,11 @@ class SmaBollingerStrategy(Strategy):
             pnl_ratio = current_price / avg_entry
             if pnl_ratio <= 0.93 or pnl_ratio >= 1.15:
                 self.sell(size=self.position.size)
-                tag = "⚠️ [손절]" if pnl_ratio <= 0.93 else "✅ [익절]"
-                # write_log(f"{tag} {self.data.index[-1].strftime('%Y.%m.%d')} | 가격: {current_price:.2f}", file_trading_log)
-                write_log_csv({
+                tag = "Stop Loss" if pnl_ratio <= 0.93 else "Take Profit"
+                trading_log_record.append({
                     "date": self.data.index[-1].strftime('%Y.%m.%d'),
                     "action": tag,
-                    "score": "",
+                    "score": round(score, 2),
                     "price": round(current_price, 2),
-                    "size": ""
-                }, file_trading_log)
+                    "size": self.position.size
+                })

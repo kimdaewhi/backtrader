@@ -12,19 +12,20 @@ class PathConfig:
     # ---------------------------
     # 📄 로그 파일명 정의
     # ---------------------------
-    FILE_SCORE_LOG = "score_log.txt"
-    FILE_TRADING_LOG = "trading_log.txt"
-    FILE_BACKTEST_LOG = "backtest_results.txt"
-    CSV_SCORE_LOG = "score_log.csv"
-    CSV_TRADING_LOG = "trading_log.csv"
-    CSV_BACKTEST_LOG = "backtest_results.csv"
+    TXT_SCORE_LOG = "score_log.txt"
+    TXT_TRADING_LOG = "trading_log.txt"
+    TXT_BACKTEST_LOG = "backtest_results.txt"
+
+    XLSX_SCORE_LOG = "score_log.xlsx"
+    XLSX_TRADING_LOG = "trading_log.xlsx"
+    XLSX_BACKTEST_LOG = "backtest_results.xlsx"
 
     # ---------------------------
     # 📁 전체 경로 (선택)
     # ---------------------------
-    PATH_SCORE_LOG = os.path.join(RESULT_DIR, FILE_SCORE_LOG)
-    PATH_TRADING_LOG = os.path.join(RESULT_DIR, FILE_TRADING_LOG)
-    PATH_BACKTEST_LOG = os.path.join(RESULT_DIR, FILE_BACKTEST_LOG)
+    PATH_SCORE_LOG = os.path.join(RESULT_DIR, TXT_SCORE_LOG)
+    PATH_TRADING_LOG = os.path.join(RESULT_DIR, TXT_TRADING_LOG)
+    PATH_BACKTEST_LOG = os.path.join(RESULT_DIR, TXT_BACKTEST_LOG)
 
 
 

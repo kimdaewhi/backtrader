@@ -1,8 +1,13 @@
 import logging
 import os
 import csv
+import pandas as pd
 from datetime import datetime
 from config.config import PathConfig
+from openpyxl import Workbook, load_workbook
+from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+from openpyxl.utils import get_column_letter
+from openpyxl.utils.dataframe import dataframe_to_rows
 
 
 
@@ -65,23 +70,58 @@ def write_log_csv(row:dict, filename: str):
         writer.writerow(row)
 
 
-# def write_log_csv(data, filename: str):
-#     """
-#     stats(Series/_Stats) 또는 일반 dict 데이터를 세로형 CSV로 저장
-#     """
-#     from pandas import Series
+def write_log_xlsx(df: pd.DataFrame, filename: str, template: str = "default"):
+    """
+    DataFrame 전체를 XLSX 파일에 저장합니다. 기존 파일은 덮어씌워집니다.
+    :param df: 기록할 DataFrame
+    :param filename: 로그 파일 이름 (xlsx 확장자 포함)
+    :param template: "score", "trading" 등 포맷 유형에 따른 열 너비 지정
+    """
+    os.makedirs(PathConfig.RESULT_DIR, exist_ok=True)
+    file_path = os.path.join(PathConfig.RESULT_DIR, filename)
 
-#     os.makedirs(PathConfig.RESULT_DIR, exist_ok=True)
-#     path = os.path.join(PathConfig.RESULT_DIR, filename)
+    wb = Workbook()
+    ws = wb.active
 
-#     # dict 또는 Series 처리
-#     if isinstance(data, dict):
-#         series_data = Series(data)
-#     elif hasattr(data, "to_dict"):
-#         series_data = Series(data.to_dict())
-#     else:
-#         raise ValueError("지원하지 않는 타입입니다. stats, Series, dict만 허용됩니다.")
+    # 🧾 헤더 작성
+    header = list(df.columns)
+    ws.append(header)
 
-#     df = series_data.reset_index()
-#     df.columns = ["항목", "값"]
-#     df.to_csv(path, index=False, encoding="utf-8-sig")
+    for col_num, col_name in enumerate(header, 1):
+        cell = ws.cell(row=1, column=col_num)
+        cell.font = Font(name="NanumGothic", size=9, bold=True)
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.fill = PatternFill(start_color="DDDDDD", end_color="DDDDDD", fill_type="solid")
+        cell.border = Border(
+            left=Side(style="thin"),
+            right=Side(style="thin"),
+            top=Side(style="thin"),
+            bottom=Side(style="thin")
+        )
+
+    # 🔧 템플릿별 열 너비 설정
+    if template == "score":
+        col_widths = [14, 12, 10, 10, 10, 12]
+    elif template == "trading":
+        col_widths = [14, 14, 10, 12, 10]
+    else:
+        col_widths = [15] * len(header)
+
+    for i, width in enumerate(col_widths, 1):
+        col_letter = get_column_letter(i)
+        ws.column_dimensions[col_letter].width = width
+
+    # 🔍 필터 추가 및 틀 고정
+    ws.auto_filter.ref = ws.dimensions
+    ws.freeze_panes = "A2"
+
+    # ✏️ 본문 데이터 작성
+    for row_data in df.itertuples(index=False, name=None):
+        ws.append(row_data)
+        for i, value in enumerate(row_data):
+            cell = ws.cell(row=ws.max_row, column=i + 1)
+            cell.font = Font(name="NanumGothic", size=9)
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+    # 💾 저장
+    wb.save(file_path)
