@@ -321,5 +321,7 @@ class SmaBollingerStrategy(Strategy):
                 write_log_csv({
                     "date": self.data.index[-1].strftime('%Y.%m.%d'),
                     "action": tag,
+                    "score": "",
                     "price": round(current_price, 2),
+                    "size": ""
                 }, file_trading_log)
