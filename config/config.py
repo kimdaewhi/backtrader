@@ -15,6 +15,9 @@ class PathConfig:
     FILE_SCORE_LOG = "score_log.txt"
     FILE_TRADING_LOG = "trading_log.txt"
     FILE_BACKTEST_LOG = "backtest_results.txt"
+    CSV_SCORE_LOG = "score_log.csv"
+    CSV_TRADING_LOG = "trading_log.csv"
+    CSV_BACKTEST_LOG = "backtest_results.csv"
 
     # ---------------------------
     # 📁 전체 경로 (선택)
