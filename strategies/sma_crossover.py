@@ -73,6 +73,13 @@ def ADX(high, low, close, period=14):
     return adx
 
 
+def MACD_and_signal(close):
+    macd = EMA(close, 12) - EMA(close, 26)
+    signal = EMA(macd, 9)
+    return macd, signal
+
+
+
 @staticmethod
 def calc_sma_score(sma_short, sma_long, sensitivity=1000, sma_weight=0.4, max_spread=0.05, bonus=0.5):
     if len(sma_short) < 6 or sma_short[-5] == 0 or np.isnan(sma_short[-1]) or np.isnan(sma_short[-5]):
@@ -217,12 +224,11 @@ class SmaBollingerStrategy(Strategy):
         # self.sma1 = self.I(SMA, self.data.Close, self.n1, overlay=True)   # 단기 이동평균
         # self.sma2 = self.I(SMA, self.data.Close, self.n2, overlay=True)   # 중기 이동평균
         # self.bb_mid, self.bb_upper, self.bb_lower = self.I(BollingerBands, self.data.Close, overlay=True)
-        self.ema1 = self.I(EMA, self.data.Close, self.n1, overlay=True)
-        self.ema2 = self.I(EMA, self.data.Close, self.n2, overlay=True)
-        self.adx = self.I(ADX, self.data.High, self.data.Low, self.data.Close, overlay=False)  # ADX 계산
-        self.rsi = self.I(RSI, self.data.Close, overlay=False)  # RSI 계산
-        self.macd = self.I(lambda x: EMA(x, 12) - EMA(x, 26), self.data.Close, overlay=False)
-        self.signal = self.I(lambda x: EMA(x, 9), self.macd, overlay=False)
+        self.ema1 = self.I(EMA, self.data.Close, self.n1, overlay=True)                         # 단기 EMA(12일선)
+        self.ema2 = self.I(EMA, self.data.Close, self.n2, overlay=True)                         # 중기 EMA(26일선)
+        self.adx = self.I(ADX, self.data.High, self.data.Low, self.data.Close, overlay=False)   # ADX 계산
+        self.rsi = self.I(RSI, self.data.Close, overlay=False)                                  # RSI 계산
+        self.macd, self.signal = self.I(MACD_and_signal, self.data.Close, name='MACD', overlay=False)  # MACD 계산
     
 
     def calculate_score(self):
