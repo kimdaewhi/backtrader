@@ -300,72 +300,82 @@ class SmartScore(Strategy):
         score = self.calculate_score()
         current_price = self.data.Close[-1]
         has_position = self.position.size > 0
+        date_str = self.data.index[-1].strftime('%Y.%m.%d')
+
+        # ✅ 손절 / 익절 조건
+        if has_position:
+            avg_entry = self.avg_entry_price
+            pnl_ratio = current_price / avg_entry
+            if pnl_ratio <= 0.93 or pnl_ratio >= 1.15:
+                tag = "Stop Loss" if pnl_ratio <= 0.93 else "Take Profit"
+                self.sell(size=self.position.size)
+                roi = (current_price - avg_entry) / avg_entry * 100
+
+                trading_log_record.append({
+                    "date": date_str,
+                    "action": tag,
+                    "score": round(score, 2),
+                    "price": round(current_price, 2),
+                    "size": self.position.size,
+                    "avg_price": round(avg_entry, 2),
+                    "roi": round(roi, 2),
+                    "market_value": 0.0
+                })
+
+                # ✅ 포지션 초기화
+                self.avg_entry_price = 0
+                self.last_size = 0
+                return
 
         # ✅ 매수 조건
         if score >= self.buy_threshold and not has_position:
             size = int(self._broker._cash / current_price * self.buy_ratio)
             if size >= 1:
                 self.buy(size=size)
-                # 매수 시점의 가격을 평균 매수가로 기록
-                if self.last_size == 0:
-                    avg_entry = current_price  # 첫 매수 시 평균 매수가는 현재 가격
-                else:
-                    avg_entry = ((self.avg_entry_price * self.last_size) + (current_price * size)) / (size + self.last_size)
 
-                # 직전 매수가, 수량 업데이트
-                self.avg_entry_price = avg_entry
-                self.last_size += size  # 누적 매수 수량 업데이트
+                # 🔧 신규 포지션일 경우
+                self.avg_entry_price = current_price
+                self.last_size = size
+                market_value = size * current_price
 
-                # 매매 로그
                 trading_log_record.append({
-                    "date": self.data.index[-1].strftime('%Y.%m.%d'),
+                    "date": date_str,
                     "action": "buy",
                     "score": round(score, 2),
                     "price": round(current_price, 2),
                     "size": size,
-                    "avg_price": round(avg_entry, 2),
-                    "roi": "-"
+                    "avg_price": round(self.avg_entry_price, 2),
+                    "roi": "-",
+                    "market_value": round(market_value, 2)
                 })
+                return
 
         # ✅ 매도 조건
-        elif score <= self.sell_threshold and has_position:
+        if score <= self.sell_threshold and has_position:
             size = max(int(self.position.size * self.sell_ratio), 1)
             self.sell(size=size)
 
-            # 매도 시 평균 매수가를 업데이트할 필요 없음
             avg_entry = self.avg_entry_price
             roi = (current_price - avg_entry) / avg_entry * 100
+            remaining_size = self.position.size
+            market_value = remaining_size * current_price
 
             trading_log_record.append({
-                "date": self.data.index[-1].strftime('%Y.%m.%d'),
+                "date": date_str,
                 "action": "sell",
                 "score": round(score, 2),
                 "price": round(current_price, 2),
                 "size": size,
                 "avg_price": round(avg_entry, 2),
-                "roi": round(roi, 2)
+                "roi": round(roi, 2),
+                "market_value": round(market_value, 2)
             })
 
-            # 매도 후 포지션이 0이면
-
-        # ✅ 손절 (-7%) / 익절 (+15%)
-        if has_position:
-            avg_entry = self.avg_entry_price
-            pnl_ratio = current_price / avg_entry
-            if pnl_ratio <= 0.93 or pnl_ratio >= 1.15:
-                self.sell(size=self.position.size)
-                tag = "Stop Loss" if pnl_ratio <= 0.93 else "Take Profit"
-                roi = (current_price - avg_entry) / avg_entry * 100
-                trading_log_record.append({
-                    "date": self.data.index[-1].strftime('%Y.%m.%d'),
-                    "action": tag,
-                    "score": round(score, 2),
-                    "price": round(current_price, 2),
-                    "size": self.position.size,
-                    "avg_price": round(avg_entry, 2),
-                    "roi": round(roi, 2)
-                })
-                # 매도 후 평균 매수가, 수량 초기화
+            # ✅ 포지션 전량 매도시 초기화
+            if remaining_size == 0:
                 self.avg_entry_price = 0
                 self.last_size = 0
+
+
+
 
