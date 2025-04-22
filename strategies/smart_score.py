@@ -74,6 +74,8 @@ def ADX(high, low, close, period=14):
 
 
 def MACD_and_signal(close):
+    """MACD 및 시그널 계산"""
+    """ close: 종가 시계열 데이터 """
     macd = EMA(close, 12) - EMA(close, 26)
     signal = EMA(macd, 9)
     return macd, signal
@@ -196,17 +198,17 @@ def calc_ema_adx_score(ema_short, ema_long, adx_values, sensitivity=800):
 
 
 @staticmethod
-def calc_macd_hist_score(macd, signal, weight=0.2):
-    """ MACD 히스토그램 기반 스코어 계산 """
-    """ macd: MACD 라인 """
-    """ signal: 시그널 라인 """
-    """ 가중치 0.2 → 점수 -2 ~ 2 범위로 클리핑 """
+def calc_macd_hist_score(macd, signal) -> float:
+    """
+    MACD 히스토그램 기반 스코어 계산
+    - 결과 점수는 -2 ~ +2 범위로 고정
+    """
     hist = macd[-1] - signal[-1]
-    hist_score = np.clip(hist * 10, -2, 2)  # 민감도 10
-    return float(hist_score * weight)
+    hist_score = np.clip(hist * 10, -2, 2)  # 민감도 10배
+    return float(hist_score)
 
 
-class SmaBollingerStrategy(Strategy):
+class SmartScore(Strategy):
     n1 = 12  # 단기 이동평균 기간
     n2 = 26  # 중기 이동평균 기간
 

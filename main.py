@@ -1,6 +1,6 @@
 from backtesting import Backtest
 from utils.data_loader import get_stock_data
-from strategies.sma_crossover import SmaBollingerStrategy, score_log_record, trading_log_record
+from strategies.smart_score import SmartScore, score_log_record, trading_log_record
 from utils.logger import write_log, write_log_xlsx
 from config.config import PathConfig, backtesting_config
 import os
@@ -38,7 +38,7 @@ def run_backtest():
     filter_data = data[data.index >= start_date]
 
     # 백테스트 실행
-    bt = Backtest(filter_data, SmaBollingerStrategy, cash=10000, commission=.002)
+    bt = Backtest(filter_data, SmartScore, cash=10000, commission=.002)
     stats = bt.run()
 
     # 스코어 로그 기록

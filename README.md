@@ -169,3 +169,9 @@ https://backtesting.tistory.com/entry/Backtesting-Trading-Strategies-with-the-Py
 >🔸**_strategy**:<br>
 >사용한 전략 이름 ("SmaBollingerStrategy")
 >→ 이 결과를 도출하기 위해 사용한 트레이딩 전략 이름입니다.
+
+
+---
+
+## 백테스트 결과 분석 시 할 수 있는 것들
+### 1. 
