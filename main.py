@@ -46,7 +46,7 @@ def run_backtest():
     write_log_xlsx(score_df, f"{symbol}_{PathConfig.XLSX_SCORE_LOG}", template="score")
 
     # 트레이딩 로그 기록
-    trading_df = pd.DataFrame(trading_log_record, columns=["date", "action", "score", "price", "size"])
+    trading_df = pd.DataFrame(trading_log_record, columns=["date", "action", "score", "price", "size", "avg_price", "roi"])
     write_log_xlsx(trading_df, f"{symbol}_{PathConfig.XLSX_TRADING_LOG}", template="trading")
 
     # 백테스트 결과 기록(text 파일)

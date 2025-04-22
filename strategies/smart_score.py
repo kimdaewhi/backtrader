@@ -1,6 +1,6 @@
 from backtesting import Strategy
 from backtesting.lib import crossover
-from utils.logger import write_log, write_log_xlsx
+from utils.logger import write_log
 from config.config import PathConfig, backtesting_config
 import pandas as pd
 import numpy as np
@@ -212,9 +212,17 @@ class SmartScore(Strategy):
     n1 = 12  # 단기 이동평균 기간
     n2 = 26  # 중기 이동평균 기간
 
+    # buy, sell 비율 설정
+    buy_ratio = 0.5  # 매수 비율 (50% 자금 투입)
+    sell_ratio = 0.5  # 매도 비율 (50% 자금 회수)
+
     # Score 임계값 설정
     buy_threshold = 1.5
     sell_threshold = -1.5
+
+    # 매수 평균가 계산용
+    avg_entry_price = 0.0    # 직전 매수 평균가
+    last_size = 0           # 직전 매수 수량
 
     # sma_weight = 0.4  # SMA Crossover 가중치(최대 4점)
     # bb_weight = 0.3  # 볼린저 밴드 가중치(최대 3점)
@@ -291,46 +299,73 @@ class SmartScore(Strategy):
     def next(self):
         score = self.calculate_score()
         current_price = self.data.Close[-1]
-
-        # 현재 포지션 존재 여부 확인
         has_position = self.position.size > 0
 
-        # ✅ 매수 조건: 스코어가 매수 임계값 이상이고 포지션 없음
+        # ✅ 매수 조건
         if score >= self.buy_threshold and not has_position:
-            size = int(self._broker._cash / current_price * 0.5)  # 50% 자금 투입 예시
+            size = int(self._broker._cash / current_price * self.buy_ratio)
             if size >= 1:
                 self.buy(size=size)
+                # 매수 시점의 가격을 평균 매수가로 기록
+                if self.last_size == 0:
+                    avg_entry = current_price  # 첫 매수 시 평균 매수가는 현재 가격
+                else:
+                    avg_entry = ((self.avg_entry_price * self.last_size) + (current_price * size)) / (size + self.last_size)
+
+                # 직전 매수가, 수량 업데이트
+                self.avg_entry_price = avg_entry
+                self.last_size += size  # 누적 매수 수량 업데이트
+
+                # 매매 로그
                 trading_log_record.append({
                     "date": self.data.index[-1].strftime('%Y.%m.%d'),
                     "action": "buy",
                     "score": round(score, 2),
                     "price": round(current_price, 2),
-                    "size": size
+                    "size": size,
+                    "avg_price": round(avg_entry, 2),
+                    "roi": "-"
                 })
 
-        # ✅ 매도 조건: 스코어가 매도 임계값 이하이고 포지션 있음
+        # ✅ 매도 조건
         elif score <= self.sell_threshold and has_position:
-            size = max(int(self.position.size * 0.5), 1)  # 보유 수량 50% 매도 예시
+            size = max(int(self.position.size * self.sell_ratio), 1)
             self.sell(size=size)
+
+            # 매도 시 평균 매수가를 업데이트할 필요 없음
+            avg_entry = self.avg_entry_price
+            roi = (current_price - avg_entry) / avg_entry * 100
+
             trading_log_record.append({
                 "date": self.data.index[-1].strftime('%Y.%m.%d'),
                 "action": "sell",
                 "score": round(score, 2),
                 "price": round(current_price, 2),
-                "size": size
+                "size": size,
+                "avg_price": round(avg_entry, 2),
+                "roi": round(roi, 2)
             })
+
+            # 매도 후 포지션이 0이면
 
         # ✅ 손절 (-7%) / 익절 (+15%)
         if has_position:
-            avg_entry = (self.position.pl + self.position.size * current_price) / self.position.size
+            avg_entry = self.avg_entry_price
             pnl_ratio = current_price / avg_entry
             if pnl_ratio <= 0.93 or pnl_ratio >= 1.15:
                 self.sell(size=self.position.size)
                 tag = "Stop Loss" if pnl_ratio <= 0.93 else "Take Profit"
+                roi = (current_price - avg_entry) / avg_entry * 100
                 trading_log_record.append({
                     "date": self.data.index[-1].strftime('%Y.%m.%d'),
                     "action": tag,
                     "score": round(score, 2),
                     "price": round(current_price, 2),
-                    "size": self.position.size
+                    "size": self.position.size,
+                    "avg_price": round(avg_entry, 2),
+                    "roi": round(roi, 2)
                 })
+                # 매도 후 평균 매수가, 수량 초기화
+                self.avg_entry_price = 0
+                self.last_size = 0
+

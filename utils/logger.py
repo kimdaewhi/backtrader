@@ -2,12 +2,10 @@ import logging
 import os
 import csv
 import pandas as pd
-from datetime import datetime
 from config.config import PathConfig
-from openpyxl import Workbook, load_workbook
+from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
-from openpyxl.utils.dataframe import dataframe_to_rows
 
 
 
@@ -103,7 +101,7 @@ def write_log_xlsx(df: pd.DataFrame, filename: str, template: str = "default"):
     if template == "score":
         col_widths = [14, 12, 10, 10, 10, 12]
     elif template == "trading":
-        col_widths = [14, 14, 10, 12, 10]
+        col_widths = [14, 14, 10, 12, 10, 13, 10, 10]
     else:
         col_widths = [15] * len(header)
 
