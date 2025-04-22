@@ -175,3 +175,26 @@ https://backtesting.tistory.com/entry/Backtesting-Trading-Strategies-with-the-Py
 
 ## 백테스트 결과 분석 시 할 수 있는 것들
 ### 1. 
+
+
+
+## 매도 조건 리디자인 필요
+
+1. **스코어가 낮다고 바로 매도하지 말고, 현재 수익률이 양수일 경우에만 매도하는 조건 추가하는 것도 고려**<br>
+예시:
+
+```python
+if score <= -1.5 and has_position and roi >= 0:
+    self.sell(...)
+```
+또는, 스코어 < -2.0과 동시에 MACD Dead Cross와 같이 복합 조건 도입
+
+2. **전략 분화**
+
+단기 전략 vs 중기 전략 분리하여 각각 스코어 기준 다르게 적용
+
+조정장에서 견디는 전략: trailing stop 또는 수익률 기반 보호 매도 전략 도입
+
+3. **전략 트레이싱 추가**
+
+로그에 “포지션 보유 기간”이나 “보유 중 최대 수익률” 등의 지표 추가해 인내했으면 어땠을까 시뮬레이션 가능

@@ -276,21 +276,16 @@ class SmartScore(Strategy):
 
 
         # 최종 스코어링 결과 출력
-        # write_log(
-        #     f"📅 [{self.data.index[-1].strftime('%Y.%m.%d')}] | "
-        #     f"EMA: {ema_adx_score:>5.2f} | "
-        #     f"MACD Historgram: {macd_score:>5.2f} | "
-        #     f"RSI: {rsi_score:>5.2f} | "
-        #     f"VOL: {volume_score:>5.2f} | "
-        #     f"TOTAL: {score:>5.2f}"
-        # , file_score_log)
+        current_price = self.data.Close[-1]
+
         score_log_record.append({
             "date": self.data.index[-1].strftime('%Y.%m.%d'),
             "EMA": round(ema_adx_score, 2),
             "MACD": round(macd_score, 2),
             "RSI": round(rsi_score, 2),
             "VOL": round(volume_score, 2),
-            "TOTAL": round(score, 2)
+            "TOTAL": round(score, 2),
+            "current price": round(current_price, 2),
         })
 
         return score
