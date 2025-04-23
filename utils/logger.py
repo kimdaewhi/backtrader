@@ -99,9 +99,9 @@ def write_log_xlsx(df: pd.DataFrame, filename: str, template: str = "default"):
 
     # 🔧 템플릿별 열 너비 설정
     if template == "score":
-        col_widths = [14, 12, 10, 10, 10, 12, 14]
+        col_widths = [14, 12, 10, 10, 10, 12, 14, 17]
     elif template == "trading":
-        col_widths = [14, 14, 10, 12, 10, 13, 10, 10]
+        col_widths = [14, 14, 10, 12, 10, 13, 10, 15, 17]
     else:
         col_widths = [15] * len(header)
 

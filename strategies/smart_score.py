@@ -297,33 +297,41 @@ class SmartScore(Strategy):
             "VOL": round(volume_score, 2),
             "TOTAL": round(score, 2),
             "current price": round(current_price, 2),
+            "market_regime": self.market_regime.value
         })
 
         return score
     
 
     def get_market_regime(self):
-        """ 시장 레짐 판단 """
+        """ Z-score 기반 시장 레짐 판단 """
         if len(self.score_history) < self.regime_window:
-            return  # 초기화 단계에서는 레짐 판단을 하지 않음(판단 보류)
+            self.market_regime = MarketRegime.NONE
+            return self.market_regime
         
-        recent_scores = self.score_history[-self.regime_window:]  # 최근 N일간 스코어 히스토리
-        avg_score = np.mean(recent_scores)  # 최근 N일간 스코어 평균
-        std_score = np.std(recent_scores)   # 최근 N일간 스코어 표준편차
+        recent_scores = self.score_history[-self.regime_window:]
+        avg_score = np.mean(recent_scores)
+        std_score = np.std(recent_scores)
 
+        # 최근 날짜의 score 기준 Z-score 계산
+        latest_score = self.score_history[-1]
+        z_score = (latest_score - avg_score) / std_score if std_score != 0 else 0
+
+        # 시장 레짐 판단
         if std_score >= 2.0:
             self.market_regime = MarketRegime.VOLATILE
-        elif avg_score >= 1.5 and std_score < 2.0:
+        elif z_score >= 1.0:
             self.market_regime = MarketRegime.BULL
-        elif avg_score <= -1.5 and std_score < 2.0:
+        elif z_score <= -1.0:
             self.market_regime = MarketRegime.BEAR
-        elif abs(avg_score) < 1.0 and std_score < 1.5:
+        elif abs(z_score) < 1.0:
             self.market_regime = MarketRegime.SIDEWAYS
         else:
             self.market_regime = MarketRegime.NONE
+
         return self.market_regime
 
-    
+
     
     def check_trailing_stop(self, current_price, score):
         """ 트레일링 스탑 손절 기준 체크 및 발동 시 매도 """
@@ -387,7 +395,8 @@ class SmartScore(Strategy):
                 "size": self.position.size,
                 "avg_price": round(avg_entry, 2),
                 "roi": round(roi, 2),
-                "market_value": 0.0
+                "market_value": 0.0,
+                "market_regime": self.market_regime.value
             })
 
             self.avg_entry_price = 0
@@ -442,7 +451,14 @@ class SmartScore(Strategy):
         - 매도 후 매수 평균가 계산
         - 매매 기록은 trading_log_record에 저장.
         """
+
+        # 1. 스코어 계산
         score = self.calculate_score()   # 스코어 계산
+        self.score_history.append(score)
+
+        # 2. 시장 레짐 판단
+        self.get_market_regime()
+
         current_price = self.data.Close[-1] # 현재가
         has_position = self.position.size > 0   # 포지션 보유 여부
         date_str = self.data.index[-1].strftime('%Y.%m.%d') # 날짜 포맷 변환
