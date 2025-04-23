@@ -285,6 +285,14 @@ class SmartScore(Strategy):
     
 
     def next(self):
+        """ 일별 매매 로직
+        - 매수/매도 조건을 만족할 경우 매매 실행.
+        - 매수 : 스코어가 score 임계값 이상이고 포지션이 없는 경우
+        - 매도 : 스코어가 score 임계값 이하이고 포지션이 있는 경우
+        - 손절/익절 : 스코어가 손절/익절 기준을 만족할 경우 매도(익절 : 15% / 손절 : 7%)
+        - 매도 후 매수 평균가 계산
+        - 매매 기록은 trading_log_record에 저장.
+        """
         score = self.calculate_score()   # 스코어 계산
         current_price = self.data.Close[-1] # 현재가
         has_position = self.position.size > 0   # 포지션 보유 여부
