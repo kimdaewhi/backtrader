@@ -355,71 +355,61 @@ class SmartScore(Strategy):
         return False  # 손절 미발동
 
 
+    def check_exit_conditions(self, score, current_price, date_str):
+        """ 손절/익절 조건 체크 및 매도 """
+        """ score: 스코어 """
+        """ current_price: 현재 가격 """
+        """ date_str: 날짜 문자열 """
+        # 트레일링 스탑 갱신
+        if current_price > self.trailing_high:
+            self.trailing_high = current_price
 
-    def next(self):
-        """ 일별 매매 로직
-        - 매수/매도 조건을 만족할 경우 매매 실행.
-        - 매수 : 스코어가 score 임계값 이상이고 포지션이 없는 경우
-        - 매도 : 스코어가 score 임계값 이하이고 포지션이 있는 경우
-        - 손절/익절 : 스코어가 손절/익절 기준을 만족할 경우 매도(익절 : 15% / 손절 : 7%)
-        - 매도 후 매수 평균가 계산
-        - 매매 기록은 trading_log_record에 저장.
+        # ① 트레일링 스탑 체크
+        if self.check_trailing_stop(current_price, score):
+            return
+
+        # ② 손절/익절 체크
+        avg_entry = self.avg_entry_price
+        pnl_ratio = current_price / avg_entry
+        stop_loss_threshold = 0.93
+        take_profit_threshold = 1.15
+
+        if pnl_ratio <= stop_loss_threshold or pnl_ratio >= take_profit_threshold:
+            tag = "Stop Loss" if pnl_ratio <= stop_loss_threshold else "Take Profit"
+            self.sell(size=self.position.size)
+            roi = (current_price - avg_entry) / avg_entry * 100
+
+            trading_log_record.append({
+                "date": date_str,
+                "action": tag,
+                "score": round(score, 2),
+                "price": round(current_price, 2),
+                "size": self.position.size,
+                "avg_price": round(avg_entry, 2),
+                "roi": round(roi, 2),
+                "market_value": 0.0
+            })
+
+            self.avg_entry_price = 0
+            self.last_size = 0
+
+
+    def handle_bull_market_logic(self, score: float, current_price: float):
+        """상승장에서의 매매 전략
+        - 스코어가 buy_threshold 이상이면 매수
+        - 포지션 없어야만 매수 진행
         """
-        score = self.calculate_score()   # 스코어 계산
-        current_price = self.data.Close[-1] # 현재가
-        has_position = self.position.size > 0   # 포지션 보유 여부
-        date_str = self.data.index[-1].strftime('%Y.%m.%d') # 날짜 포맷 변환
+        has_position = self.position.size > 0
+        date_str = self.data.index[-1].strftime('%Y.%m.%d')
 
-        # ✅ 손절 / 익절 조건
-        if has_position:
-            # 트레일링 스탑 손절 체크
-            if current_price > self.trailing_high:
-                self.trailing_high = current_price # 트레일링 스탑 기준가 갱신
-
-            if self.check_trailing_stop(current_price, score):
-                return  # 트레일링 스탑으로 매도된 경우 종료
-            
-            avg_entry = self.avg_entry_price
-            pnl_ratio = current_price / avg_entry
-
-            stop_loss_threshold = 0.93      # 손절 기준 (7% 손실)
-            take_profit_threshold = 1.15    # 익절 기준 (15% 수익)
-            if pnl_ratio <= stop_loss_threshold or pnl_ratio >= take_profit_threshold:
-                tag = "Stop Loss" if pnl_ratio <= 0.93 else "Take Profit"
-                self.sell(size=self.position.size)
-                roi = (current_price - avg_entry) / avg_entry * 100 # Return on Investment(일별 수익률 계산)
-
-                trading_log_record.append({
-                    "date": date_str,
-                    "action": tag,
-                    "score": round(score, 2),
-                    "price": round(current_price, 2),
-                    "size": self.position.size,
-                    "avg_price": round(avg_entry, 2),
-                    "roi": round(roi, 2),
-                    "market_value": 0.0
-                })
-
-                # ✅ 포지션 초기화(현재는 100% 청산, 추후에 청산 비율 조정 필요)
-                self.avg_entry_price = 0
-                self.last_size = 0
-                return
-
-        # ✅ 매수 조건 : 스코어가 매수 임계값 이상이고 포지션이 없는 경우
-        # 매수도 조금 잘못된것 같은데? 포지션이 있어도 추가 매수 가능하게?
         if score >= self.buy_threshold and not has_position:
-            # size = int(self._broker._cash / current_price * self.buy_ratio) # 매수 비중 계산(50%)
-            available_cash = self._broker.get_cash() if hasattr(self._broker, "get_cash") else self._broker._cash
+            available_cash = self._broker if hasattr(self._broker, "get_cash") else self._broker._cash
             size = int(available_cash / current_price * self.buy_ratio)
 
-            # if size >= 1:
             if size >= 1 and (current_price * size <= available_cash):
                 self.buy(size=size)
 
-                # 🔧 평균 매수가 재계산
-                # self.avg_entry_price = current_price
-                # self.last_size = size
-                # market_value = size * current_price
+                # 🔧 평균 매수가 계산
                 if self.last_size == 0:
                     self.avg_entry_price = current_price
                 else:
@@ -440,7 +430,74 @@ class SmartScore(Strategy):
                     "roi": "-",
                     "market_value": round(market_value, 2)
                 })
-                return
+
+
+    def next(self):
+        """ 일별 매매 로직
+        - 매수/매도 조건을 만족할 경우 매매 실행.
+        - 매수 : 스코어가 score 임계값 이상이고 포지션이 없는 경우
+        - 매도 : 스코어가 score 임계값 이하이고 포지션이 있는 경우
+        - 손절/익절 : 스코어가 손절/익절 기준을 만족할 경우 매도(익절 : 15% / 손절 : 7%)
+        - 매도 후 매수 평균가 계산
+        - 매매 기록은 trading_log_record에 저장.
+        """
+        score = self.calculate_score()   # 스코어 계산
+        current_price = self.data.Close[-1] # 현재가
+        has_position = self.position.size > 0   # 포지션 보유 여부
+        date_str = self.data.index[-1].strftime('%Y.%m.%d') # 날짜 포맷 변환
+
+        # ✅ 1단계: 시장 판단 기반 매매 시도
+        if self.market_regime == MarketRegime.BULL:
+            self.handle_bull_market_logic(score, current_price)
+        elif self.market_regime == MarketRegime.SIDEWAYS:
+            self.handle_sideways_market_logic(score, current_price)
+        elif self.market_regime == MarketRegime.BEAR:
+            self.handle_bear_market_logic(score, current_price)
+        elif self.market_regime == MarketRegime.VOLATILE:
+            self.handle_volatile_market_logic(score, current_price)
+        else:
+            pass  # 혹시 모를 init/none 등 기본 처리
+
+        # ✅ 손절 / 익절 조건
+        if has_position:
+            self.check_exit_conditions(score, current_price, date_str)
+
+        # ✅ 매수 조건 : 스코어가 매수 임계값 이상이고 포지션이 없는 경우
+        # 매수도 조금 잘못된것 같은데? 포지션이 있어도 추가 매수 가능하게?
+        # if score >= self.buy_threshold and not has_position:
+        #     # size = int(self._broker._cash / current_price * self.buy_ratio) # 매수 비중 계산(50%)
+        #     available_cash = self._broker.get_cash() if hasattr(self._broker, "get_cash") else self._broker._cash
+        #     size = int(available_cash / current_price * self.buy_ratio)
+
+        #     # if size >= 1:
+        #     if size >= 1 and (current_price * size <= available_cash):
+        #         self.buy(size=size)
+
+        #         # 🔧 평균 매수가 재계산
+        #         # self.avg_entry_price = current_price
+        #         # self.last_size = size
+        #         # market_value = size * current_price
+        #         if self.last_size == 0:
+        #             self.avg_entry_price = current_price
+        #         else:
+        #             self.avg_entry_price = (
+        #                 (self.avg_entry_price * self.last_size) + (current_price * size)
+        #             ) / (self.last_size + size)
+
+        #         self.last_size += size
+        #         market_value = self.last_size * current_price
+
+        #         trading_log_record.append({
+        #             "date": date_str,
+        #             "action": "buy",
+        #             "score": round(score, 2),
+        #             "price": round(current_price, 2),
+        #             "size": size,
+        #             "avg_price": round(self.avg_entry_price, 2),
+        #             "roi": "-",
+        #             "market_value": round(market_value, 2)
+        #         })
+        #         return
 
         # ✅ 매도 조건 : 스코어가 매도 임계값 이하이고 포지션이 있는 경우
         # if score <= self.sell_threshold and has_position:
@@ -468,6 +525,7 @@ class SmartScore(Strategy):
         #     if remaining_size == 0:
         #         self.avg_entry_price = 0
         #         self.last_size = 0
+
 
 
 
