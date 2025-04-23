@@ -25,7 +25,7 @@ def run_backtest():
     # 🔥 로그 초기화: 기존 로그 파일 삭제
     os.makedirs(PathConfig.RESULT_DIR, exist_ok=True)
 
-    for log_file in [f"{symbol}_{PathConfig.XLSX_SCORE_LOG}", f"{symbol}_{PathConfig.XLSX_TRADING_LOG}", f"{symbol}_{PathConfig.TXT_BACKTEST_LOG}"]:
+    for log_file in [f"{symbol}_{PathConfig.TODAY}_{PathConfig.XLSX_SCORE_LOG}", f"{symbol}_{PathConfig.TODAY}_{PathConfig.XLSX_TRADING_LOG}", f"{symbol}_{PathConfig.TODAY}_{PathConfig.TXT_BACKTEST_LOG}"]:
         path = os.path.join(PathConfig.RESULT_DIR, log_file)
         if os.path.exists(path):
             os.remove(path)
@@ -43,14 +43,14 @@ def run_backtest():
 
     # 스코어 로그 기록
     score_df = pd.DataFrame(score_log_record, columns=["date", "EMA", "MACD", "RSI", "VOL", "TOTAL", "current price"])
-    write_log_xlsx(score_df, f"{symbol}_{PathConfig.XLSX_SCORE_LOG}", template="score")
+    write_log_xlsx(score_df, f"{symbol}_{PathConfig.TODAY}_{PathConfig.XLSX_SCORE_LOG}", template="score")
 
     # 트레이딩 로그 기록
     trading_df = pd.DataFrame(trading_log_record, columns=["date", "action", "score", "price", "size", "avg_price", "roi"])
-    write_log_xlsx(trading_df, f"{symbol}_{PathConfig.XLSX_TRADING_LOG}", template="trading")
+    write_log_xlsx(trading_df, f"{symbol}_{PathConfig.TODAY}_{PathConfig.XLSX_TRADING_LOG}", template="trading")
 
     # 백테스트 결과 기록(text 파일)
-    write_log(pprint.pformat(stats), f"{backtesting_config.SYMBOL}_{PathConfig.TXT_BACKTEST_LOG}")
+    write_log(pprint.pformat(stats), f"{backtesting_config.SYMBOL}_{PathConfig.TODAY}_{PathConfig.TXT_BACKTEST_LOG}")
 
     
     os.makedirs(PathConfig.RESULT_DIR, exist_ok=True)

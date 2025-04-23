@@ -212,7 +212,7 @@ class SmartScore(Strategy):
     n1 = 12  # 단기 이동평균 기간
     n2 = 26  # 중기 이동평균 기간
 
-    # buy, sell 비율 설정
+    # buy, sell 비율
     buy_ratio = 0.5  # 매수 비율 (50% 자금 투입)
     sell_ratio = 0.5  # 매도 비율 (50% 자금 회수)
 
@@ -220,9 +220,13 @@ class SmartScore(Strategy):
     buy_threshold = 1.5
     sell_threshold = -1.5
 
-    # 매수 평균가 계산용
+    # 매수 평균가
     avg_entry_price = 0.0    # 직전 매수 평균가
     last_size = 0           # 직전 매수 수량
+
+    # 트레일링 스탑
+    trailing_stop_drawdown = 0.1  # 트레일링 스탑 손절 기준 (10% 손실)
+    trailing_high = 0     # 트레일링 스탑 최고가 기록용
 
 
     def init(self):
@@ -284,6 +288,37 @@ class SmartScore(Strategy):
         return score
     
 
+    def check_trailing_stop(self, current_price, score):
+        """ 트레일링 스탑 손절 기준 체크 및 발동 시 매도 """
+        """ current_price: 현재 가격 """
+        """ score: 스코어 """
+        stop_price = self.trailing_high * (1 - self.trailing_stop_drawdown)  # 손절 기준 가격
+
+        if(current_price <= stop_price):
+            self.sell(size=self.position.size)  # 포지션 청산(비율 : 100%)
+            roi = (current_price - self.avg_entry_price) / self.avg_entry_price * 100  # 수익률 계산
+            
+            # 트레일링 스탑 손절 기록
+            trading_log_record.append({
+                "date": self.data.index[-1].strftime('%Y.%m.%d'),
+                "action": "Trailing Stop",
+                "score": round(score, 2),
+                "price": round(current_price, 2),
+                "size": self.position.size,
+                "avg_price": round(self.avg_entry_price, 2),
+                "roi": round(roi, 2),
+                "market_value": 0.0
+            })
+
+            self.avg_entry_price = 0  # 포지션 초기화
+            self.last_size = 0
+            self.trailing_high = 0  # 최고가 초기화
+
+            return True  # 손절 발생
+        return False  # 손절 미발동
+
+
+
     def next(self):
         """ 일별 매매 로직
         - 매수/매도 조건을 만족할 경우 매매 실행.
@@ -300,6 +335,13 @@ class SmartScore(Strategy):
 
         # ✅ 손절 / 익절 조건
         if has_position:
+            # 트레일링 스탑 손절 체크
+            if current_price > self.trailing_high:
+                self.trailing_high = current_price # 트레일링 스탑 기준가 갱신
+
+            if self.check_trailing_stop(current_price, score):
+                return  # 트레일링 스탑으로 매도된 경우 종료
+            
             avg_entry = self.avg_entry_price
             pnl_ratio = current_price / avg_entry
 
@@ -329,14 +371,27 @@ class SmartScore(Strategy):
         # ✅ 매수 조건 : 스코어가 매수 임계값 이상이고 포지션이 없는 경우
         # 매수도 조금 잘못된것 같은데? 포지션이 있어도 추가 매수 가능하게?
         if score >= self.buy_threshold and not has_position:
-            size = int(self._broker._cash / current_price * self.buy_ratio) # 매수 비중 계산(50%)
-            if size >= 1:
+            # size = int(self._broker._cash / current_price * self.buy_ratio) # 매수 비중 계산(50%)
+            available_cash = self._broker.get_cash() if hasattr(self._broker, "get_cash") else self._broker._cash
+            size = int(available_cash / current_price * self.buy_ratio)
+
+            # if size >= 1:
+            if size >= 1 and (current_price * size <= available_cash):
                 self.buy(size=size)
 
-                # 🔧 신규 포지션일 경우(매수 평균가 계산)
-                self.avg_entry_price = current_price
-                self.last_size = size
-                market_value = size * current_price
+                # 🔧 평균 매수가 재계산
+                # self.avg_entry_price = current_price
+                # self.last_size = size
+                # market_value = size * current_price
+                if self.last_size == 0:
+                    self.avg_entry_price = current_price
+                else:
+                    self.avg_entry_price = (
+                        (self.avg_entry_price * self.last_size) + (current_price * size)
+                    ) / (self.last_size + size)
+
+                self.last_size += size
+                market_value = self.last_size * current_price
 
                 trading_log_record.append({
                     "date": date_str,
@@ -351,31 +406,31 @@ class SmartScore(Strategy):
                 return
 
         # ✅ 매도 조건 : 스코어가 매도 임계값 이하이고 포지션이 있는 경우
-        if score <= self.sell_threshold and has_position:
-            size = max(int(self.position.size * self.sell_ratio), 1)    # 매도 비중 계산(50%)
-            self.sell(size=size)
+        # if score <= self.sell_threshold and has_position:
+        #     size = max(int(self.position.size * self.sell_ratio), 1)    # 매도 비중 계산(50%)
+        #     self.sell(size=size)
 
-            # 🔧 매도 후 매수 평균가 계산
-            avg_entry = self.avg_entry_price
-            roi = (current_price - avg_entry) / avg_entry * 100
-            remaining_size = self.position.size
-            market_value = remaining_size * current_price
+        #     # 🔧 매도 후 매수 평균가 계산
+        #     avg_entry = self.avg_entry_price
+        #     roi = (current_price - avg_entry) / avg_entry * 100
+        #     remaining_size = self.position.size
+        #     market_value = remaining_size * current_price
 
-            trading_log_record.append({
-                "date": date_str,
-                "action": "sell",
-                "score": round(score, 2),
-                "price": round(current_price, 2),
-                "size": size,
-                "avg_price": round(avg_entry, 2),
-                "roi": round(roi, 2),
-                "market_value": round(market_value, 2)
-            })
+        #     trading_log_record.append({
+        #         "date": date_str,
+        #         "action": "sell",
+        #         "score": round(score, 2),
+        #         "price": round(current_price, 2),
+        #         "size": size,
+        #         "avg_price": round(avg_entry, 2),
+        #         "roi": round(roi, 2),
+        #         "market_value": round(market_value, 2)
+        #     })
 
-            # ✅ 포지션 전량 매도시 초기화
-            if remaining_size == 0:
-                self.avg_entry_price = 0
-                self.last_size = 0
+        #     # ✅ 포지션 전량 매도시 초기화
+        #     if remaining_size == 0:
+        #         self.avg_entry_price = 0
+        #         self.last_size = 0
 
 
 
