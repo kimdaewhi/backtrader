@@ -304,7 +304,6 @@ class SmartScore(Strategy):
 
     def get_market_regime(self):
         """ 시장 레짐 판단 """
-        """ score: 스코어 """
         if len(self.score_history) < self.regime_window:
             return  # 초기화 단계에서는 레짐 판단을 하지 않음(판단 보류)
         
