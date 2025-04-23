@@ -428,7 +428,8 @@ class SmartScore(Strategy):
                     "size": size,
                     "avg_price": round(self.avg_entry_price, 2),
                     "roi": "-",
-                    "market_value": round(market_value, 2)
+                    "market_value": round(market_value, 2),
+                    "market_regime": self.market_regime.value
                 })
 
 
@@ -449,82 +450,18 @@ class SmartScore(Strategy):
         # ✅ 1단계: 시장 판단 기반 매매 시도
         if self.market_regime == MarketRegime.BULL:
             self.handle_bull_market_logic(score, current_price)
-        elif self.market_regime == MarketRegime.SIDEWAYS:
-            self.handle_sideways_market_logic(score, current_price)
-        elif self.market_regime == MarketRegime.BEAR:
-            self.handle_bear_market_logic(score, current_price)
-        elif self.market_regime == MarketRegime.VOLATILE:
-            self.handle_volatile_market_logic(score, current_price)
+        # elif self.market_regime == MarketRegime.SIDEWAYS:
+        #     self.handle_sideways_market_logic(score, current_price)
+        # elif self.market_regime == MarketRegime.BEAR:
+        #     self.handle_bear_market_logic(score, current_price)
+        # elif self.market_regime == MarketRegime.VOLATILE:
+        #     self.handle_volatile_market_logic(score, current_price)
         else:
             pass  # 혹시 모를 init/none 등 기본 처리
 
         # ✅ 손절 / 익절 조건
         if has_position:
             self.check_exit_conditions(score, current_price, date_str)
-
-        # ✅ 매수 조건 : 스코어가 매수 임계값 이상이고 포지션이 없는 경우
-        # 매수도 조금 잘못된것 같은데? 포지션이 있어도 추가 매수 가능하게?
-        # if score >= self.buy_threshold and not has_position:
-        #     # size = int(self._broker._cash / current_price * self.buy_ratio) # 매수 비중 계산(50%)
-        #     available_cash = self._broker.get_cash() if hasattr(self._broker, "get_cash") else self._broker._cash
-        #     size = int(available_cash / current_price * self.buy_ratio)
-
-        #     # if size >= 1:
-        #     if size >= 1 and (current_price * size <= available_cash):
-        #         self.buy(size=size)
-
-        #         # 🔧 평균 매수가 재계산
-        #         # self.avg_entry_price = current_price
-        #         # self.last_size = size
-        #         # market_value = size * current_price
-        #         if self.last_size == 0:
-        #             self.avg_entry_price = current_price
-        #         else:
-        #             self.avg_entry_price = (
-        #                 (self.avg_entry_price * self.last_size) + (current_price * size)
-        #             ) / (self.last_size + size)
-
-        #         self.last_size += size
-        #         market_value = self.last_size * current_price
-
-        #         trading_log_record.append({
-        #             "date": date_str,
-        #             "action": "buy",
-        #             "score": round(score, 2),
-        #             "price": round(current_price, 2),
-        #             "size": size,
-        #             "avg_price": round(self.avg_entry_price, 2),
-        #             "roi": "-",
-        #             "market_value": round(market_value, 2)
-        #         })
-        #         return
-
-        # ✅ 매도 조건 : 스코어가 매도 임계값 이하이고 포지션이 있는 경우
-        # if score <= self.sell_threshold and has_position:
-        #     size = max(int(self.position.size * self.sell_ratio), 1)    # 매도 비중 계산(50%)
-        #     self.sell(size=size)
-
-        #     # 🔧 매도 후 매수 평균가 계산
-        #     avg_entry = self.avg_entry_price
-        #     roi = (current_price - avg_entry) / avg_entry * 100
-        #     remaining_size = self.position.size
-        #     market_value = remaining_size * current_price
-
-        #     trading_log_record.append({
-        #         "date": date_str,
-        #         "action": "sell",
-        #         "score": round(score, 2),
-        #         "price": round(current_price, 2),
-        #         "size": size,
-        #         "avg_price": round(avg_entry, 2),
-        #         "roi": round(roi, 2),
-        #         "market_value": round(market_value, 2)
-        #     })
-
-        #     # ✅ 포지션 전량 매도시 초기화
-        #     if remaining_size == 0:
-        #         self.avg_entry_price = 0
-        #         self.last_size = 0
 
 
 
