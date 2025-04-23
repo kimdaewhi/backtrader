@@ -224,16 +224,9 @@ class SmartScore(Strategy):
     avg_entry_price = 0.0    # 직전 매수 평균가
     last_size = 0           # 직전 매수 수량
 
-    # sma_weight = 0.4  # SMA Crossover 가중치(최대 4점)
-    # bb_weight = 0.3  # 볼린저 밴드 가중치(최대 3점)
-    # rsi_weight = 0.2  # RSI 가중치(최대 2점)
-    # volume_weight = 0.1  # 거래량 가중치(최대 1점)
 
     def init(self):
         """ 초기화 """
-        # self.sma1 = self.I(SMA, self.data.Close, self.n1, overlay=True)   # 단기 이동평균
-        # self.sma2 = self.I(SMA, self.data.Close, self.n2, overlay=True)   # 중기 이동평균
-        # self.bb_mid, self.bb_upper, self.bb_lower = self.I(BollingerBands, self.data.Close, overlay=True)
         self.ema1 = self.I(EMA, self.data.Close, self.n1, overlay=True)                         # 단기 EMA(12일선)
         self.ema2 = self.I(EMA, self.data.Close, self.n2, overlay=True)                         # 중기 EMA(26일선)
         self.adx = self.I(ADX, self.data.High, self.data.Low, self.data.Close, overlay=False)   # ADX 계산
@@ -245,9 +238,9 @@ class SmartScore(Strategy):
         """ 매수/매도 판단을 위한 스코어링 엔진 - 각 지표의 Signal을 Score로 계산 """
         """ SMA Crossover, 볼린저 밴드, RSI, Volume을 종합하여 종목별 점수 산출 """
         """ Score Scale 기준 : -10 ~ 10점 """
-        """ 가중치 : SMA Crossover(40%), 볼린저 밴드(30%), RSI(20%), Volume(10%) """
+        """ 가중치 : EMA & ADX(40%) + MACD(20%) + RSI(20%) + Volume(10%) """
 
-        score = 0           # 총합 Score
+        score = 0           # 총합 Score(+-10 ~ -10)
         ema_adx_score = 0   # EMA Crossover + ADX Score
         macd_score = 0      # MACD Score
         rsi_score = 0       # RSI Score
@@ -292,19 +285,22 @@ class SmartScore(Strategy):
     
 
     def next(self):
-        score = self.calculate_score()
-        current_price = self.data.Close[-1]
-        has_position = self.position.size > 0
-        date_str = self.data.index[-1].strftime('%Y.%m.%d')
+        score = self.calculate_score()   # 스코어 계산
+        current_price = self.data.Close[-1] # 현재가
+        has_position = self.position.size > 0   # 포지션 보유 여부
+        date_str = self.data.index[-1].strftime('%Y.%m.%d') # 날짜 포맷 변환
 
         # ✅ 손절 / 익절 조건
         if has_position:
             avg_entry = self.avg_entry_price
             pnl_ratio = current_price / avg_entry
-            if pnl_ratio <= 0.93 or pnl_ratio >= 1.15:
+
+            stop_loss_threshold = 0.93      # 손절 기준 (7% 손실)
+            take_profit_threshold = 1.15    # 익절 기준 (15% 수익)
+            if pnl_ratio <= stop_loss_threshold or pnl_ratio >= take_profit_threshold:
                 tag = "Stop Loss" if pnl_ratio <= 0.93 else "Take Profit"
                 self.sell(size=self.position.size)
-                roi = (current_price - avg_entry) / avg_entry * 100
+                roi = (current_price - avg_entry) / avg_entry * 100 # Return on Investment(일별 수익률 계산)
 
                 trading_log_record.append({
                     "date": date_str,
@@ -317,18 +313,19 @@ class SmartScore(Strategy):
                     "market_value": 0.0
                 })
 
-                # ✅ 포지션 초기화
+                # ✅ 포지션 초기화(현재는 100% 청산, 추후에 청산 비율 조정 필요)
                 self.avg_entry_price = 0
                 self.last_size = 0
                 return
 
-        # ✅ 매수 조건
+        # ✅ 매수 조건 : 스코어가 매수 임계값 이상이고 포지션이 없는 경우
+        # 매수도 조금 잘못된것 같은데? 포지션이 있어도 추가 매수 가능하게?
         if score >= self.buy_threshold and not has_position:
-            size = int(self._broker._cash / current_price * self.buy_ratio)
+            size = int(self._broker._cash / current_price * self.buy_ratio) # 매수 비중 계산(50%)
             if size >= 1:
                 self.buy(size=size)
 
-                # 🔧 신규 포지션일 경우
+                # 🔧 신규 포지션일 경우(매수 평균가 계산)
                 self.avg_entry_price = current_price
                 self.last_size = size
                 market_value = size * current_price
@@ -345,11 +342,12 @@ class SmartScore(Strategy):
                 })
                 return
 
-        # ✅ 매도 조건
+        # ✅ 매도 조건 : 스코어가 매도 임계값 이하이고 포지션이 있는 경우
         if score <= self.sell_threshold and has_position:
-            size = max(int(self.position.size * self.sell_ratio), 1)
+            size = max(int(self.position.size * self.sell_ratio), 1)    # 매도 비중 계산(50%)
             self.sell(size=size)
 
+            # 🔧 매도 후 매수 평균가 계산
             avg_entry = self.avg_entry_price
             roi = (current_price - avg_entry) / avg_entry * 100
             remaining_size = self.position.size
