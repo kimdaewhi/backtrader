@@ -1,3 +1,4 @@
+from enum import Enum
 from backtesting import Strategy
 from backtesting.lib import crossover
 from utils.logger import write_log
@@ -207,6 +208,14 @@ def calc_macd_hist_score(macd, signal) -> float:
     hist_score = np.clip(hist * 10, -2, 2)  # 민감도 10배
     return float(hist_score)
 
+class MarketRegime(Enum):
+    """ 시장 레짐 판단을 위한 클래스 """
+    """ 레짐 종류 : Bull(강세장), Bear(약세장), Sideways(횡보장), Volatile(변동성장), None(없음) """
+    BULL = "bull"
+    BEAR = "bear"
+    SIDEWAYS = "sideways"
+    VOLATILE = "volatile"
+    NONE = "none"
 
 class SmartScore(Strategy):
     n1 = 12  # 단기 이동평균 기간
@@ -216,7 +225,7 @@ class SmartScore(Strategy):
     buy_ratio = 0.5  # 매수 비율 (50% 자금 투입)
     sell_ratio = 0.5  # 매도 비율 (50% 자금 회수)
 
-    # Score 임계값 설정
+    # 종합 Score 임계값 설정
     buy_threshold = 1.5
     sell_threshold = -1.5
 
@@ -227,6 +236,11 @@ class SmartScore(Strategy):
     # 트레일링 스탑
     trailing_stop_drawdown = 0.1  # 트레일링 스탑 손절 기준 (10% 손실)
     trailing_high = 0     # 트레일링 스탑 최고가 기록용
+
+    # 마켓 레짐 판단 지표
+    market_regime = MarketRegime.NONE  # 시장 레짐 초기화
+    score_history = []  # 최근 N일간 스코어 히스토리 기록용
+    regime_window = 20  # 시장 regime 판단을 위한 스코어 히스토리 기간
 
 
     def init(self):
@@ -288,6 +302,30 @@ class SmartScore(Strategy):
         return score
     
 
+    def get_market_regime(self):
+        """ 시장 레짐 판단 """
+        """ score: 스코어 """
+        if len(self.score_history) < self.regime_window:
+            return  # 초기화 단계에서는 레짐 판단을 하지 않음(판단 보류)
+        
+        recent_scores = self.score_history[-self.regime_window:]  # 최근 N일간 스코어 히스토리
+        avg_score = np.mean(recent_scores)  # 최근 N일간 스코어 평균
+        std_score = np.std(recent_scores)   # 최근 N일간 스코어 표준편차
+
+        if std_score >= 2.0:
+            self.market_regime = MarketRegime.VOLATILE
+        elif avg_score >= 1.5 and std_score < 2.0:
+            self.market_regime = MarketRegime.BULL
+        elif avg_score <= -1.5 and std_score < 2.0:
+            self.market_regime = MarketRegime.BEAR
+        elif abs(avg_score) < 1.0 and std_score < 1.5:
+            self.market_regime = MarketRegime.SIDEWAYS
+        else:
+            self.market_regime = MarketRegime.NONE
+        return self.market_regime
+
+    
+    
     def check_trailing_stop(self, current_price, score):
         """ 트레일링 스탑 손절 기준 체크 및 발동 시 매도 """
         """ current_price: 현재 가격 """
