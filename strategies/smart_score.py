@@ -304,27 +304,31 @@ class SmartScore(Strategy):
     
 
     def get_market_regime(self):
-        """ Z-score 기반 시장 레짐 판단 """
-        if len(self.score_history) < self.regime_window:
+        """ SMA 기반의 z-score로 시장 레짐 판단 """
+        close = self.data.Close
+        if len(close) < self.regime_window:
             self.market_regime = MarketRegime.NONE
             return self.market_regime
+
+        sma_series = SMA(close, self.regime_window)
+        latest_price = close[-1]
+        sma = sma_series.iloc[-1]
+        std = np.std(close[-self.regime_window:])  # 표준편차 계산
+
+        z_score = (latest_price - sma) / std if std != 0 else 0
+
+        std_threshold = 1.8  # 변동성 기준
+        z_score_threshold = 0.9  # z-score 기준
+
         
-        recent_scores = self.score_history[-self.regime_window:]
-        avg_score = np.mean(recent_scores)
-        std_score = np.std(recent_scores)
-
-        # 최근 날짜의 score 기준 Z-score 계산
-        latest_score = self.score_history[-1]
-        z_score = (latest_score - avg_score) / std_score if std_score != 0 else 0
-
-        # 시장 레짐 판단
-        if std_score >= 2.0:
+        # 🔽 z-score를 이용한 시장 레짐 분류
+        if std >= std_threshold:
             self.market_regime = MarketRegime.VOLATILE
-        elif z_score >= 1.0:
+        elif z_score >= z_score_threshold:
             self.market_regime = MarketRegime.BULL
-        elif z_score <= -1.0:
+        elif z_score <= -z_score_threshold:
             self.market_regime = MarketRegime.BEAR
-        elif abs(z_score) < 1.0:
+        elif abs(z_score) < z_score_threshold:
             self.market_regime = MarketRegime.SIDEWAYS
         else:
             self.market_regime = MarketRegime.NONE
