@@ -239,7 +239,6 @@ class SmartScore(Strategy):
 
     # 마켓 레짐 판단 지표
     market_regime = MarketRegime.NONE  # 시장 레짐 초기화
-    score_history = []  # 최근 N일간 스코어 히스토리 기록용
     regime_window = 20  # 시장 regime 판단을 위한 스코어 히스토리 기간
 
 
@@ -320,7 +319,7 @@ class SmartScore(Strategy):
         std_threshold = 1.8  # 변동성 기준
         z_score_threshold = 0.9  # z-score 기준
 
-        
+
         # 🔽 z-score를 이용한 시장 레짐 분류
         if std >= std_threshold:
             self.market_regime = MarketRegime.VOLATILE
@@ -458,7 +457,6 @@ class SmartScore(Strategy):
 
         # 1. 스코어 계산
         score = self.calculate_score()   # 스코어 계산
-        self.score_history.append(score)
 
         # 2. 시장 레짐 판단
         self.get_market_regime()
