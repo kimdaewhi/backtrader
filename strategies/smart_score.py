@@ -312,9 +312,21 @@ class SmartScore(Strategy):
         sma_series = SMA(close, self.regime_window)
         latest_price = close[-1]
         sma = sma_series.iloc[-1]
-        std = np.std(close[-self.regime_window:])  # 표준편차 계산
 
+        # σ(표준편차) 계산
+        # σ는 시장의 예측 가능성만을 나타내는 지표로, 가격의 변동성을 추정하기에는 부족함
+        # 따라서, 가격의 변동성을 추정하기 위해서는 '방향성'을 고려해야 하는데, 이를 위해서는 다른 지표를 활용해야 함.(ex: ADX, ATR, CCI 등)
+        std = np.std(close[-self.regime_window:])  
+
+        date = self.data.index[-1].strftime('%Y.%m.%d')
         z_score = (latest_price - sma) / std if std != 0 else 0
+        print(
+            f"[{date}]  "
+            f"latest_price: {latest_price:.2f}  "
+            f"mean(SMA): {sma:.2f}  "
+            f"σ (std): {std:.2f}  "
+            f"z-score: {z_score:.2f}"
+        )
 
         std_threshold = 1.8  # 변동성 기준
         z_score_threshold = 0.9  # z-score 기준
