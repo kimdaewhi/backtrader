@@ -49,7 +49,7 @@ class SmartScore(Strategy):
         """ 초기화 """
         self.ema1 = self.I(EMA, self.data.Close, self.n1, overlay=True)                         # 단기 EMA(12일선)
         self.ema2 = self.I(EMA, self.data.Close, self.n2, overlay=True)                         # 중기 EMA(26일선)
-        self.adx = self.I(ADX, self.data.High, self.data.Low, self.data.Close, overlay=False)   # ADX 계산
+        self.adx = self.I(ADX, self.data.High, self.data.Low, self.data.Close, period=14, overlay=False)   # ADX 계산
         self.rsi = self.I(RSI, self.data.Close, overlay=False)                                  # RSI 계산
         self.macd, self.signal = self.I(MACD_and_signal, self.data.Close, name='MACD', overlay=False)  # MACD 계산
     
