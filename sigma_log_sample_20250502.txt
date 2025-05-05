@@ -410,7 +410,7 @@
 [2023.09.29]  latest_price: 103.63  mean(SMA): 111.66  σ (std): 7.24  z-score: -1.11
 [2023.10.02]  latest_price: 104.40  mean(SMA): 110.97  σ (std): 7.24  z-score: -0.91
 [2023.10.03]  latest_price: 102.26  mean(SMA): 110.01  σ (std): 7.07  z-score: -1.10
-[2023.10.04]  latest_price: 104.77  mean(SMA): 109.17  σ (std): 6.62  z-score: -0.66
+[2023.10.04]  latest_price: 104.77  mean(SMA): 109.17  σ (std): 6.62  z-score: -0.67
 [2023.10.05]  latest_price: 106.01  mean(SMA): 108.35  σ (std): 5.91  z-score: -0.40
 [2023.10.06]  latest_price: 107.58  mean(SMA): 107.55  σ (std): 4.77  z-score: 0.01
 [2023.10.09]  latest_price: 107.94  mean(SMA): 106.75  σ (std): 2.94  z-score: 0.40
@@ -581,7 +581,7 @@
 [2024.06.05]  latest_price: 121.28  mean(SMA): 119.69  σ (std): 3.03  z-score: 0.52
 [2024.06.06]  latest_price: 122.14  mean(SMA): 119.99  σ (std): 2.96  z-score: 0.73
 [2024.06.07]  latest_price: 124.53  mean(SMA): 120.45  σ (std): 2.92  z-score: 1.40
-[2024.06.10]  latest_price: 123.12  mean(SMA): 120.84  σ (std): 2.72  z-score: 0.84
+[2024.06.10]  latest_price: 123.12  mean(SMA): 120.83  σ (std): 2.72  z-score: 0.84
 [2024.06.11]  latest_price: 122.51  mean(SMA): 121.21  σ (std): 2.40  z-score: 0.54
 [2024.06.12]  latest_price: 138.83  mean(SMA): 122.17  σ (std): 4.50  z-score: 3.70
 [2024.06.13]  latest_price: 138.31  mean(SMA): 123.07  σ (std): 5.68  z-score: 2.68

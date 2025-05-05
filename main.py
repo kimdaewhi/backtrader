@@ -42,7 +42,7 @@ def run_backtest():
     stats = bt.run()
 
     # 스코어 로그 기록
-    score_df = pd.DataFrame(score_log_record, columns=["date", "EMA", "MACD", "RSI", "VOL", "TOTAL", "current price", "market_regime"])
+    score_df = pd.DataFrame(score_log_record, columns=["date", "EMA", "MACD", "RSI", "VOL", "TOTAL", "current price", "σ (std)", "z-score", "market_regime"])
     write_log_xlsx(score_df, f"{symbol}_{PathConfig.TODAY}_{PathConfig.XLSX_SCORE_LOG}", template="score")
 
     # 트레이딩 로그 기록

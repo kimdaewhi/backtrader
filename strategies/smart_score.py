@@ -218,28 +218,30 @@ class MarketRegime(Enum):
     NONE = "none"
 
 class SmartScore(Strategy):
-    n1 = 12  # 단기 이동평균 기간
-    n2 = 26  # 중기 이동평균 기간
+    n1 = 12                             # EMA 단기 이동평균 기간
+    n2 = 26                             # EMA 중기 이동평균 기간
 
     # buy, sell 비율
-    buy_ratio = 0.5  # 매수 비율 (50% 자금 투입)
-    sell_ratio = 0.5  # 매도 비율 (50% 자금 회수)
+    buy_ratio = 0.5                     # 매수 비율 (50% 자금 투입)
+    sell_ratio = 0.5                    # 매도 비율 (50% 자금 회수)
 
     # 종합 Score 임계값 설정
     buy_threshold = 1.5
     sell_threshold = -1.5
 
     # 매수 평균가
-    avg_entry_price = 0.0    # 직전 매수 평균가
-    last_size = 0           # 직전 매수 수량
+    avg_entry_price = 0.0               # 직전 매수 평균가
+    last_size = 0                       # 직전 매수 수량
 
     # 트레일링 스탑
-    trailing_stop_drawdown = 0.1  # 트레일링 스탑 손절 기준 (10% 손실)
-    trailing_high = 0     # 트레일링 스탑 최고가 기록용
+    trailing_stop_drawdown = 0.1        # 트레일링 스탑 손절 기준 (10% 손실)
+    trailing_high = 0                   # 트레일링 스탑 최고가 기록용
 
     # 마켓 레짐 판단 지표
-    market_regime = MarketRegime.NONE  # 시장 레짐 초기화
-    regime_window = 20  # 시장 regime 판단을 위한 스코어 히스토리 기간
+    market_regime = MarketRegime.NONE   # 시장 레짐 초기화
+    regime_window = 20                  # 시장 regime 판단을 위한 스코어 히스토리 기간
+    std = 0                             # 표준편차 초기화
+    z_score = 0                         # z-score 초기화
 
 
     def init(self):
@@ -296,7 +298,9 @@ class SmartScore(Strategy):
             "VOL": round(volume_score, 2),
             "TOTAL": round(score, 2),
             "current price": round(current_price, 2),
-            "market_regime": self.market_regime.value
+            "σ (std)": round(self.std, 2) if self.std is not None else "-",
+            "z-score": round(self.z_score, 2) if self.z_score is not None else "-",
+            "market_regime": self.market_regime.value,
         })
 
         return score
@@ -304,6 +308,9 @@ class SmartScore(Strategy):
 
     def get_market_regime(self):
         """ SMA 기반의 z-score로 시장 레짐 판단 """
+        self.std = 0        # 표준편차 초기화
+        self.z_score = 0    # z-score 초기화
+        
         close = self.data.Close
         if len(close) < self.regime_window:
             self.market_regime = MarketRegime.NONE
@@ -317,30 +324,30 @@ class SmartScore(Strategy):
         # σ는 시장의 예측 가능성만을 나타내는 지표로, 가격의 변동성을 추정하기에는 부족함
         # 따라서, 가격의 변동성을 추정하기 위해서는 '방향성'을 고려해야 하는데, 이를 위해서는 다른 지표를 활용해야 함.(ex: ADX, ATR, CCI 등)
         # 기울기 / low pass filter
-        std = np.std(close[-self.regime_window:])  
+        self.std = float(np.std(close[-self.regime_window:]))
 
         date = self.data.index[-1].strftime('%Y.%m.%d')
-        z_score = (latest_price - sma) / std if std != 0 else 0
-        print(
-            f"[{date}]  "
-            f"latest_price: {latest_price:.2f}  "
-            f"mean(SMA): {sma:.2f}  "
-            f"σ (std): {std:.2f}  "
-            f"z-score: {z_score:.2f}"
-        )
+        self.z_score = float((latest_price - sma) / self.std) if self.std != 0 else 0
+        # print(
+        #     f"[{date}]  "
+        #     f"latest_price: {latest_price:.2f}  "
+        #     f"mean(SMA): {sma:.2f}  "
+        #     f"σ (std): {self.std:.2f}  "
+        #     f"z-score: {self.z_score:.2f}"
+        # )
 
         std_threshold = 1.8  # 변동성 기준
         z_score_threshold = 0.9  # z-score 기준
 
 
         # 🔽 z-score를 이용한 시장 레짐 분류
-        if std >= std_threshold:
+        if self.std >= std_threshold:
             self.market_regime = MarketRegime.VOLATILE
-        elif z_score >= z_score_threshold:
+        elif self.z_score >= z_score_threshold:
             self.market_regime = MarketRegime.BULL
-        elif z_score <= -z_score_threshold:
+        elif self.z_score <= -z_score_threshold:
             self.market_regime = MarketRegime.BEAR
-        elif abs(z_score) < z_score_threshold:
+        elif abs(self.z_score) < z_score_threshold:
             self.market_regime = MarketRegime.SIDEWAYS
         else:
             self.market_regime = MarketRegime.NONE
