@@ -325,16 +325,7 @@ class SmartScore(Strategy):
         # 따라서, 가격의 변동성을 추정하기 위해서는 '방향성'을 고려해야 하는데, 이를 위해서는 다른 지표를 활용해야 함.(ex: ADX, ATR, CCI 등)
         # 기울기 / low pass filter
         self.std = float(np.std(close[-self.regime_window:]))
-
-        date = self.data.index[-1].strftime('%Y.%m.%d')
         self.z_score = float((latest_price - sma) / self.std) if self.std != 0 else 0
-        # print(
-        #     f"[{date}]  "
-        #     f"latest_price: {latest_price:.2f}  "
-        #     f"mean(SMA): {sma:.2f}  "
-        #     f"σ (std): {self.std:.2f}  "
-        #     f"z-score: {self.z_score:.2f}"
-        # )
 
         std_threshold = 1.8  # 변동성 기준
         z_score_threshold = 0.9  # z-score 기준
