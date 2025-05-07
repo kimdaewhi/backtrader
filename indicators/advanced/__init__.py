@@ -1,4 +1,4 @@
-from .macd import MACD_and_signal
+from .macd import MACD, MACD_and_signal, MACD_signal_crossover, MACD_histogram
 from .bollinger import BollingerBands
 from .adx import ADX
 from .rsi import RSI
@@ -20,7 +20,10 @@ from .cci import CCI
 
 
 __all__ = [
+    "MACD",
     "MACD_and_signal",
+    "MACD_histogram",
+    "MACD_signal_crossover",
     "BollingerBands",
     "ADX",
     "RSI",

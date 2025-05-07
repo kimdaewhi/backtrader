@@ -53,7 +53,6 @@ class SmartScore(Strategy):
         self.rsi = self.I(RSI, self.data.Close, overlay=False)                                  # RSI 계산
         self.macd, self.signal = self.I(MACD_and_signal, self.data.Close, name='MACD', overlay=False)  # MACD 계산
     
-
     def calculate_score(self):
         """ 매수/매도 판단을 위한 스코어링 엔진 - 각 지표의 Signal을 Score로 계산 """
         """ SMA Crossover, 볼린저 밴드, RSI, Volume을 종합하여 종목별 점수 산출 """
