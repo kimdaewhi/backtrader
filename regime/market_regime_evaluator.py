@@ -31,20 +31,48 @@ class MarketRegimeEvaluator:
     
 
     def _calculate_indicators(self):
-        # OHLC
+        """
+        Private like 메서드
+        입력된 yfinance 데이터(df)를 기반으로 시장 레짐 판단에 필요한 보조지표들을 계산하여 반환합니다.
+        반환값: dict 형태의 지표 결과
+        {
+            'ema_fast': pd.Series,
+            'ema_slow': pd.Series,
+            'macd': pd.Series,
+            'cci': pd.Series,
+            'roc': pd.Series,
+            'adx': pd.Series,
+            'macd_histogram': pd.Series,
+            'macd_signal_cross': pd.Series
+        }
+        """
+        # OHLCV
         open = self.df["Open"]
         high = self.df["High"]
         low = self.df["Low"]
         close = self.df["Close"]
         volume = self.df["Volume"]
 
-        ema_fast = EMA(close, self.ema_fast_period)
-        ema_slow = EMA(close, self.ema_slow_period)
+        # 방향성 및 추세 판단용 보조지표 계산
+        ema_fast = EMA(close, self.ema_fast_period) # 단기 EMA(12일)
+        ema_slow = EMA(close, self.ema_slow_period) # 장기 EMA(26일)
+        
+        # MACD 계산: 추세 전환 및 방향 감지
         macd, signal = MACD_and_signal(close, self.ema_fast_period, self.ema_slow_period, self.macd_signal_period)
+
+        # CCI 계산: 평균 가격과의 괴리로 과열/과매도 판단 + 방향성 감지
         cci = CCI(high, low, close, self.cci_window)
+
+        # ROC 계산: 가격 변화율로 모멘텀 판단 + 방향성 감지
         roc = ROC(close, self.roc_window)
+
+        # ADX 계산: 추세 강도 판단(방향성 x, 순수 추세 강도)
         adx = ADX(high, low, close, self.adx_period)
+
+        # MACD 히스토그램 계산: MACD - Signal -> 추세 강도 시각화
         macd_histogram = macd - signal
+
+        # MACD 시그널 라인 크로스오버: 추세 전환 시점 포착 (1: 골든크로스, -1: 데드크로스)
         macd_signal_cross = MACD_signal_crossover(close, self.ema_fast_period, self.ema_slow_period, self.macd_signal_period)
 
 
@@ -59,18 +87,9 @@ class MarketRegimeEvaluator:
             'macd_signal_cross': macd_signal_cross,
         }
     
-    
-    
-    
-    
-    def score_direction(self, date) -> int:
-        """
-        방향성 점수 계산
-        :param date: 평가할 날짜
-        :return: 방향성 점수 (0: 약세, 1: 중립, 2: 강세)
-        """
-        ema_fast = self.indicators['ema_fast'].loc[date]
-        ema_slow = self.indicators['ema_slow'].loc[date]
 
-        if ema_fast > ema_slow:
-            return 2
+    # Noise Filtering
+    # Noise란 뭘까...?? 뭘로 정의할까...??
+    # 예측할 수 없는 변동성인데... 이걸 어떤 지표로 잡아낼 수 있을까...??
+    # ATR? ATR 표준편차? z-score?
+
