@@ -1,4 +1,5 @@
 import pandas as pd
+from indicators.base import ATR
 
 def ADX(high, low, close, period=14):
     """
@@ -37,14 +38,8 @@ def ADX(high, low, close, period=14):
     plus_dm = ((up_move > down_move) & (up_move > 0)) * up_move
     minus_dm = ((down_move > up_move) & (down_move > 0)) * down_move
 
-    # 2. TR (True Range) 계산
-    tr1 = high - low
-    tr2 = (high - close.shift()).abs()
-    tr3 = (low - close.shift()).abs()
-    tr = pd.concat([tr1, tr2, tr3], axis=1).max(axis=1)
-
-    # 3. ATR (Average True Range): 변동성 추정 (EMA로 개선)
-    atr = tr.ewm(span=period, adjust=False).mean()
+    # 2. ATR 계산 (Average True Range)
+    atr = ATR(high, low, close, window=period)
 
     # 4. DI+ / DI- 계산
     plus_di = 100 * plus_dm.ewm(span=period, adjust=False).mean() / atr

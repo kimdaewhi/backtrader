@@ -1,5 +1,5 @@
 import pandas as pd
-from market_regime import MarketRegime
+from regime.market_regime import MarketRegime
 from indicators.base import SMA, EMA
 from indicators.advanced import MACD_and_signal, MACD_signal_crossover, CCI, ROC, ADX
 
