@@ -3,6 +3,7 @@
 # Base indicators
 from .base.ema import EMA
 from .base.sma import SMA
+from .base.atr import ATR
 
 # Advanced indicators
 from .advanced.macd import MACD_and_signal
@@ -26,6 +27,6 @@ from .advanced.rsi import RSI
 
 
 __all__ = [
-    "EMA", "SMA",
+    "EMA", "SMA", "ATR",
     "MACD_and_signal", "BollingerBands", "ADX", "RSI"
 ]
