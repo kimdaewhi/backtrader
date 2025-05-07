@@ -14,6 +14,7 @@ from enum import Enum
     - ADX                   : 추세 존재 여부 및 강도 판단
     - MACD Histogram        : 모멘텀(추세의 힘) 시각화
     - MACD Signal Crossover : 추세 전환 타이밍 감지
+    - CCI                   : ±100 기준, 평균 이탈 수준에 따라 추세 강도 보조 판단
 
     [⚠️ 노이즈 필터링 지표]
     - 시그마(표준편차)        : 절대적 변동성 수준 측정
