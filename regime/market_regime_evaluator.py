@@ -1,6 +1,6 @@
 import pandas as pd
 from regime.market_regime import MarketRegime
-from indicators.base import SMA, EMA
+from indicators.base import EMA, ATR
 from indicators.advanced import MACD_and_signal, MACD_signal_crossover, CCI, ROC, ADX
 
 class MarketRegimeEvaluator:
@@ -92,4 +92,38 @@ class MarketRegimeEvaluator:
     # Noise란 뭘까...?? 뭘로 정의할까...??
     # 예측할 수 없는 변동성인데... 이걸 어떤 지표로 잡아낼 수 있을까...??
     # ATR? ATR 표준편차? z-score?
+    def score_noise(self, date, window=14, std_threshold=1.5, z_score_threshold=1.5) -> int:
+        """
+        주어진 날짜에 대한 노이즈 점수를 계산합니다.
+        노이즈 점수는 ATR 기반 표준편차 + z-score를 사용하여 계산됩니다.
+        특정 시점에서 ATR의 절대값 및 z-score를 기준으로 노이즈를 판단합니다.
 
+        Returns:
+            1: 노이즈가 감지된 경우(VOLATILE 가능성)
+            0: 노이즈가 감지되지 않은 경우(안정적 판단 가능)
+        """
+        high = self.df["High"]
+        low = self.df["Low"]
+        close = self.df["Close"]
+
+        atr_series = ATR(high, low, close, window)
+
+        if len(atr_series) < window or date not in atr_series.index:
+            return 0    # 판단 불가 -> 일단 안정으로 간주
+        
+        idx = atr_series.index.get_loc(date)
+        if idx < window:
+            return 0    # 데이터 부족 -> 판단 불가
+        
+        # 최근 window 기간의 ATR 슬라이스
+        atr_window = atr_series.iloc[idx - window + 1 : idx + 1]
+        latest_atr = atr_window.iloc[-1]
+        mean = atr_window.mean()
+
+        std = atr_window.std()
+        z_score = (latest_atr - mean) / std if std != 0 else 0
+
+        # 노이즈 판단
+        if latest_atr >= std_threshold or abs(z_score) >= z_score_threshold:
+            return 1 # 노이즈 감지
+        return 0    # 노이즈 없음

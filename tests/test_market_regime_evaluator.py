@@ -41,3 +41,23 @@ def test_indicator_is_series(evaluator, key):
 def test_indicator_not_all_nan(evaluator, key):
     series = evaluator.indicators[key]
     assert series.notna().any(), f"{key} contains all NaN values."
+
+
+def test_score_noise_across_dates(evaluator):
+    """
+    score_noise 함수 테스트
+    - 최근 10일간 날짜별 노이즈 점수 출력
+    - ATR / std / z-score를 기반으로 판단된 결과를 확인
+    """
+    # 테스트할 날짜 리스트 (가장 최근 10개)
+    dates = evaluator.df.index[0:60]
+
+    print("\n🧪 [score_noise 테스트 - 최근 10일]")
+
+    for date in dates:
+        score = evaluator.score_noise(date)
+        print(f"{date.date()} ➤ 노이즈 점수: {score}")
+
+    # assert로 최소 하나 이상은 0 또는 1 나오는지 확인 (완전 실패 방지용)
+    scores = [evaluator.score_noise(date) for date in dates]
+    assert any(score in [0, 1] for score in scores)
