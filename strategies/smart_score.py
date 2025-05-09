@@ -48,7 +48,40 @@ class SmartScore(Strategy):
         self.adx = self.I(ADX, self.data.High, self.data.Low, self.data.Close, period=14, overlay=False)   # ADX 계산
         self.rsi = self.I(RSI, self.data.Close, overlay=False)                                  # RSI 계산
         self.macd, self.signal = self.I(MACD_and_signal, self.data.Close, name='MACD', overlay=False)  # MACD 계산
+
+        self.score_logs = []  # 스코어 로그 초기화
+        self.trading_logs = []  # 매매 로그 초기화
+
+        # ✅ 테이블 구조 정의용 예시 row
+        example_score_log = {
+            "date": "2025.01.01",               # TEXT
+            "EMA": 0.0,                          # REAL
+            "MACD": 0.0,
+            "RSI": 0.0,
+            "VOL": 0.0,
+            "TOTAL": 0.0,
+            "current price": 0.0,
+            "σ (std)": 0.0,
+            "z-score": 0.0,
+            "market_regime": "none"             # TEXT
+        }
+        example_trading_log = {
+            "date": "2025.01.01",               # TEXT
+            "action": "Buy",                    # TEXT
+            "score": 0.0,                       # REAL
+            "price": 0.0,
+            "size": 0,                          # INTEGER
+            "avg_price": 0.0,
+            "roi": 0.0,
+            "market_value": 0.0,
+            "market_regime": MarketRegime.NONE.value
+        }
+        sqlite_logger._ensure_table(LOG_TABLES["score"], example_score_log)  # 테이블 생성
+        sqlite_logger._ensure_table(LOG_TABLES["trade"], example_trading_log)
+
+        sqlite_logger.begin()  # SQLite 트랜잭션 시작
     
+
     def calculate_score(self):
         """ 매수/매도 판단을 위한 스코어링 엔진 - 각 지표의 Signal을 Score로 계산 """
         """ SMA Crossover, 볼린저 밴드, RSI, Volume을 종합하여 종목별 점수 산출 """
@@ -86,7 +119,7 @@ class SmartScore(Strategy):
         # 최종 스코어링 결과 출력
         current_price = self.data.Close[-1]
 
-        sccore_log = {
+        score_log = {
             "date": self.data.index[-1].strftime('%Y.%m.%d'),
             "EMA": round(ema_adx_score, 2),
             "MACD": round(macd_score, 2),
@@ -98,7 +131,7 @@ class SmartScore(Strategy):
             "z-score": round(self.z_score, 2) if self.z_score is not None else "-",
             "market_regime": self.market_regime.value,
         }
-        sqlite_logger.insert(LOG_TABLES["score"], sccore_log)
+        self.score_logs.append(score_log)  # 스코어 로그 추가
 
         return score
     
@@ -163,9 +196,10 @@ class SmartScore(Strategy):
                 "size": self.position.size,
                 "avg_price": round(self.avg_entry_price, 2),
                 "roi": round(roi, 2),
-                "market_value": 0.0
+                "market_value": 0.0,
+                "market_regime": self.market_regime.value
             }
-            sqlite_logger.insert(LOG_TABLES["trade"], trading_log)
+            self.trading_logs.append(trading_log)  # 매매 로그 추가
 
             self.avg_entry_price = 0  # 포지션 초기화
             self.last_size = 0
@@ -210,7 +244,7 @@ class SmartScore(Strategy):
                 "market_value": 0.0,
                 "market_regime": self.market_regime.value
             }
-            sqlite_logger.insert(LOG_TABLES["trade"], trading_log)
+            self.trading_logs.append(trading_log)  # 매매 로그 추가
 
             self.avg_entry_price = 0
             self.last_size = 0
@@ -253,7 +287,7 @@ class SmartScore(Strategy):
                     "market_value": round(market_value, 2),
                     "market_regime": self.market_regime.value
                 }
-                sqlite_logger.insert(LOG_TABLES["trade"], trading_log)
+                self.trading_logs.append(trading_log)
 
 
     def next(self):
@@ -292,6 +326,17 @@ class SmartScore(Strategy):
         if has_position:
             self.check_exit_conditions(score, current_price, date_str)
 
+
+    def __del__(self):
+        """ 종료 시 SQLite 트랜잭션 종료 """
+        if self.score_logs:
+            sqlite_logger.insert_many(LOG_TABLES["score"], self.score_logs)
+        
+        if self.trading_logs:
+            sqlite_logger.insert_many(LOG_TABLES["trade"], self.trading_logs)
+
+        if sqlite_logger._in_transaction:
+            sqlite_logger.commit()
 
 
 
