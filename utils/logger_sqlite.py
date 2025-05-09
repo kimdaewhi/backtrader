@@ -7,7 +7,7 @@ from config.config import PathConfig, backtesting_config
 class SQLiteLogger:
     def __init__(self, db_path=None):
         if db_path is None:
-            db_path = os.path.join(PathConfig.RESULT_DIR, f"{backtesting_config.SYMBOL}_{PathConfig.TODAY}_strategy_logs.sqlite")
+            db_path = os.path.join(PathConfig.RESULT_DIR, f"{backtesting_config.SYMBOL}_{PathConfig.TODAY}_logs.sqlite")
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
         self.conn = sqlite3.connect(db_path)

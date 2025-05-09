@@ -33,9 +33,12 @@ def run_backtest():
             os.remove(path)
             print(f"🧹 기존 로그 파일 삭제됨: {path}")
 
-    for table in LOG_TABLES.values():
-        sqlite_logger.reset_table(table)
-        print(f"🧹 기존 로그 테이블 삭제됨")
+    sqlite_file = os.path.join(PathConfig.RESULT_DIR, f"{symbol}_{PathConfig.TODAY}_logs.sqlite")
+    
+    if os.path.exists(sqlite_file):
+        for table in LOG_TABLES.values():
+            sqlite_logger.reset_table(table)
+            print(f"🧹 기존 로그 테이블 삭제됨")
 
 
     # 데이터 로드
