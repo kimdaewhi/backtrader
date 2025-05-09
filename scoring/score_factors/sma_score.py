@@ -1,5 +1,5 @@
 import numpy as np
-from utils.logger import write_log, file_score_log
+from utils.logger_xl import write_log, file_score_log
 from backtesting.lib import crossover
 
 def calc_sma_score(sma_short, sma_long, sensitivity=1000, sma_weight=0.4, max_spread=0.05, bonus=0.5):
