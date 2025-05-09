@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from backtesting import Strategy
 
+from utils.looger_sqlite import sqlite_logger, LOG_TABLES
 from indicators.base import EMA, SMA
 from indicators.advanced import ADX, RSI, MACD_and_signal
 from scoring.score_factors import (
@@ -11,11 +12,6 @@ from scoring.score_factors import (
     calc_volume_score,
 )
 from regime import MarketRegime
-
-
-
-score_log_record = []   # 스코어 로그 기록용 DataFrame
-trading_log_record = [] # 거래 로그 기록용 DataFrame
 
 
 class SmartScore(Strategy):
@@ -90,7 +86,7 @@ class SmartScore(Strategy):
         # 최종 스코어링 결과 출력
         current_price = self.data.Close[-1]
 
-        score_log_record.append({
+        sccore_log = {
             "date": self.data.index[-1].strftime('%Y.%m.%d'),
             "EMA": round(ema_adx_score, 2),
             "MACD": round(macd_score, 2),
@@ -101,7 +97,8 @@ class SmartScore(Strategy):
             "σ (std)": round(self.std, 2) if self.std is not None else "-",
             "z-score": round(self.z_score, 2) if self.z_score is not None else "-",
             "market_regime": self.market_regime.value,
-        })
+        }
+        sqlite_logger.insert(LOG_TABLES["score"], sccore_log)
 
         return score
     
@@ -158,7 +155,7 @@ class SmartScore(Strategy):
             roi = (current_price - self.avg_entry_price) / self.avg_entry_price * 100  # 수익률 계산
             
             # 트레일링 스탑 손절 기록
-            trading_log_record.append({
+            trading_log = {
                 "date": self.data.index[-1].strftime('%Y.%m.%d'),
                 "action": "Trailing Stop",
                 "score": round(score, 2),
@@ -167,7 +164,8 @@ class SmartScore(Strategy):
                 "avg_price": round(self.avg_entry_price, 2),
                 "roi": round(roi, 2),
                 "market_value": 0.0
-            })
+            }
+            sqlite_logger.insert(LOG_TABLES["trade"], trading_log)
 
             self.avg_entry_price = 0  # 포지션 초기화
             self.last_size = 0
@@ -201,7 +199,7 @@ class SmartScore(Strategy):
             self.sell(size=self.position.size)
             roi = (current_price - avg_entry) / avg_entry * 100
 
-            trading_log_record.append({
+            trading_log = {
                 "date": date_str,
                 "action": tag,
                 "score": round(score, 2),
@@ -211,7 +209,8 @@ class SmartScore(Strategy):
                 "roi": round(roi, 2),
                 "market_value": 0.0,
                 "market_regime": self.market_regime.value
-            })
+            }
+            sqlite_logger.insert(LOG_TABLES["trade"], trading_log)
 
             self.avg_entry_price = 0
             self.last_size = 0
@@ -243,7 +242,7 @@ class SmartScore(Strategy):
                 self.last_size += size
                 market_value = self.last_size * current_price
 
-                trading_log_record.append({
+                trading_log = {
                     "date": date_str,
                     "action": "buy",
                     "score": round(score, 2),
@@ -253,7 +252,8 @@ class SmartScore(Strategy):
                     "roi": "-",
                     "market_value": round(market_value, 2),
                     "market_regime": self.market_regime.value
-                })
+                }
+                sqlite_logger.insert(LOG_TABLES["trade"], trading_log)
 
 
     def next(self):
@@ -263,7 +263,7 @@ class SmartScore(Strategy):
         - 매도 : 스코어가 score 임계값 이하이고 포지션이 있는 경우
         - 손절/익절 : 스코어가 손절/익절 기준을 만족할 경우 매도(익절 : 15% / 손절 : 7%)
         - 매도 후 매수 평균가 계산
-        - 매매 기록은 trading_log_record에 저장.
+        - 매매 기록은 trading_log 테이블에 저장.
         """
 
         # 1. 스코어 계산

@@ -19,11 +19,9 @@ class SQLiteLogger:
     def _ensure_table(self, table: str, data: Dict):
         """
         테이블이 존재하는지 확인하고, 없으면 생성합니다.
-        :param table: 테이블 이름
-        :param data: 데이터 (딕셔너리 형태)
         """
-        cols = ', '.join([f"{k} TEXT" for k in data.keys()])
-        sql = f"CREATE TABLE IF NOT EXISTS {table} ({cols})"
+        cols = ', '.join([f'"{k}" TEXT' for k in data.keys()])
+        sql = f'CREATE TABLE IF NOT EXISTS "{table}" ({cols})'
         self.cursor.execute(sql)
         self.conn.commit()
 
@@ -35,11 +33,12 @@ class SQLiteLogger:
         :param data: 데이터 (딕셔너리 형태)
         """
         self._ensure_table(table, data)
-        columns = ', '.join(data.keys())
+        columns = ', '.join([f'"{k}"' for k in data.keys()])
         placeholders = ', '.join(['?'] * len(data))
-        sql = f"INSERT INTO {table} ({columns}) VALUES ({placeholders})"
+        sql = f'INSERT INTO "{table}" ({columns}) VALUES ({placeholders})'
         self.cursor.execute(sql, list(data.values()))
         self.conn.commit()
+
 
     
     def close(self):
@@ -47,3 +46,18 @@ class SQLiteLogger:
         데이터베이스 연결을 닫습니다.
         """
         self.conn.close()
+
+
+# 전역 인스턴스 생성
+sqlite_logger = SQLiteLogger()
+
+
+# 테이블명 정의
+
+# 로그 테이블
+LOG_TABLES = {
+    "score": "score_log",
+    "trade": "trading_log",
+    "regime": "regime_log",
+    "error": "error_log",
+}

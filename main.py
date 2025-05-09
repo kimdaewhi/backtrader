@@ -1,7 +1,7 @@
 from backtesting import Backtest
 from utils.data_loader import get_stock_data
-from strategies.smart_score import SmartScore, score_log_record, trading_log_record
-from utils.logger_xl import write_log, write_log_xlsx
+from strategies.smart_score import SmartScore
+from utils.logger_xl import write_log
 from config.config import PathConfig, backtesting_config
 import os
 import pandas as pd
@@ -40,14 +40,6 @@ def run_backtest():
     # 백테스트 실행
     bt = Backtest(filter_data, SmartScore, cash=10000, commission=.002)
     stats = bt.run()
-
-    # 스코어 로그 기록
-    score_df = pd.DataFrame(score_log_record, columns=["date", "EMA", "MACD", "RSI", "VOL", "TOTAL", "current price", "σ (std)", "z-score", "market_regime"])
-    write_log_xlsx(score_df, f"{symbol}_{PathConfig.TODAY}_{PathConfig.XLSX_SCORE_LOG}", template="score")
-
-    # 트레이딩 로그 기록
-    trading_df = pd.DataFrame(trading_log_record, columns=["date", "action", "score", "price", "size", "avg_price", "roi", "market_value", "market_regime"])
-    write_log_xlsx(trading_df, f"{symbol}_{PathConfig.TODAY}_{PathConfig.XLSX_TRADING_LOG}", template="trading")
 
     # 백테스트 결과 기록(text 파일)
     write_log(pprint.pformat(stats), f"{backtesting_config.SYMBOL}_{PathConfig.TODAY}_{PathConfig.TXT_BACKTEST_LOG}")
