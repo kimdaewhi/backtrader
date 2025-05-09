@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from backtesting import Strategy
 
-from utils.looger_sqlite import sqlite_logger, LOG_TABLES
+from utils.logger_sqlite import sqlite_logger, LOG_TABLES
 from indicators.base import EMA, SMA
 from indicators.advanced import ADX, RSI, MACD_and_signal
 from scoring.score_factors import (

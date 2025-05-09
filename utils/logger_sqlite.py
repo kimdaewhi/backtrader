@@ -1,14 +1,13 @@
 import sqlite3
 import os
 from typing import Dict
-from datetime import datetime
-from config.config import PathConfig
+from config.config import PathConfig, backtesting_config
 
 
 class SQLiteLogger:
     def __init__(self, db_path=None):
         if db_path is None:
-            db_path = os.path.join(PathConfig.RESULT_DIR, "strategy_logs.sqlite")
+            db_path = os.path.join(PathConfig.RESULT_DIR, f"{backtesting_config.SYMBOL}_{PathConfig.TODAY}_strategy_logs.sqlite")
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
 
         self.conn = sqlite3.connect(db_path)
@@ -39,6 +38,15 @@ class SQLiteLogger:
         self.cursor.execute(sql, list(data.values()))
         self.conn.commit()
 
+    def reset_table(self, table: str):
+        """
+        지정된 테이블을 초기화합니다.
+        :param table: 테이블 이름
+        """
+        sql = f'DROP TABLE IF EXISTS "{table}"'
+        self.cursor.execute(sql)
+        self.conn.commit()
+        print(f"🗑️  {table} 테이블이 초기화되었습니다.")
 
     
     def close(self):

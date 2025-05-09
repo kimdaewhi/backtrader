@@ -1,11 +1,13 @@
-from backtesting import Backtest
-from utils.data_loader import get_stock_data
-from strategies.smart_score import SmartScore
-from utils.logger_xl import write_log
-from config.config import PathConfig, backtesting_config
 import os
 import pandas as pd
 import pprint
+from backtesting import Backtest
+
+from utils.data_loader import get_stock_data
+from strategies.smart_score import SmartScore
+from utils.logger_xl import write_log
+from utils.logger_sqlite import sqlite_logger, LOG_TABLES
+from config.config import PathConfig, backtesting_config
 
 
 def convert_stats_to_vertical_dict(stats_obj):
@@ -30,6 +32,10 @@ def run_backtest():
         if os.path.exists(path):
             os.remove(path)
             print(f"🧹 기존 로그 파일 삭제됨: {path}")
+
+    for table in LOG_TABLES.values():
+        sqlite_logger.reset_table(table)
+        print(f"🧹 기존 로그 테이블 삭제됨")
 
 
     # 데이터 로드
