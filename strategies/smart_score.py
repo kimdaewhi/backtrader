@@ -12,6 +12,7 @@ from scoring.score_factors import (
     calc_volume_score,
 )
 from regime import MarketRegime
+from regime.market_regime_evaluator import MarketRegimeEvaluator
 
 
 class SmartScore(Strategy):
@@ -36,9 +37,6 @@ class SmartScore(Strategy):
 
     # 마켓 레짐 판단 지표
     market_regime = MarketRegime.NONE   # 시장 레짐 초기화
-    regime_window = 20                  # 시장 regime 판단을 위한 스코어 히스토리 기간
-    std = 0                             # 표준편차 초기화
-    z_score = 0                         # z-score 초기화
 
 
     def init(self):
@@ -51,6 +49,7 @@ class SmartScore(Strategy):
 
         self.score_logs = []  # 스코어 로그 초기화
         self.trading_logs = []  # 매매 로그 초기화
+        self.regime_logs = []  # 매매 로그 초기화
 
         # ✅ 테이블 구조 정의용 예시 row
         example_score_log = {
@@ -76,8 +75,20 @@ class SmartScore(Strategy):
             "market_value": 0.0,
             "market_regime": MarketRegime.NONE.value
         }
-        sqlite_logger._ensure_table(LOG_TABLES["score"], example_score_log)  # 테이블 생성
+        example_regime_log = {
+            "date": "2025.01.01",               # TEXT
+            "market_regime": MarketRegime.NONE.value,  # TEXT
+            "direction_score": 0.0,         # REAL(방향성 스코어)
+            "trend_score": 0.0,            # REAL(추세 스코어)
+            "noise_score": 0.0,              # REAL
+            "atr": 0.0,                       # REAL
+            "std": 0.0,                       # REAL
+            "z-score": 0.0,                   # REA
+        }
+        # 테이블 생성
+        sqlite_logger._ensure_table(LOG_TABLES["score"], example_score_log)  
         sqlite_logger._ensure_table(LOG_TABLES["trade"], example_trading_log)
+        sqlite_logger._ensure_table(LOG_TABLES["regime"], example_regime_log)
 
         sqlite_logger.begin()  # SQLite 트랜잭션 시작
     
@@ -134,47 +145,6 @@ class SmartScore(Strategy):
         self.score_logs.append(score_log)  # 스코어 로그 추가
 
         return score
-    
-
-    def get_market_regime(self):
-        """ SMA 기반의 z-score로 시장 레짐 판단 """
-        self.std = 0        # 표준편차 초기화
-        self.z_score = 0    # z-score 초기화
-        
-        close = self.data.Close
-        if len(close) < self.regime_window:
-            self.market_regime = MarketRegime.NONE
-            return self.market_regime
-
-        sma_series = SMA(close, self.regime_window)
-        latest_price = close[-1]
-        sma = sma_series.iloc[-1]
-
-        # σ(표준편차) 계산
-        # σ는 시장의 예측 가능성만을 나타내는 지표로, 가격의 변동성을 추정하기에는 부족함
-        # 따라서, 가격의 변동성을 추정하기 위해서는 '방향성'을 고려해야 하는데, 이를 위해서는 다른 지표를 활용해야 함.(ex: ADX, ATR, CCI 등)
-        # 기울기 / low pass filter
-        self.std = float(np.std(close[-self.regime_window:]))
-        self.z_score = float((latest_price - sma) / self.std) if self.std != 0 else 0
-
-        std_threshold = 1.8  # 변동성 기준
-        z_score_threshold = 0.9  # z-score 기준
-
-
-        # 🔽 z-score를 이용한 시장 레짐 분류
-        if self.std >= std_threshold:
-            self.market_regime = MarketRegime.VOLATILE
-        elif self.z_score >= z_score_threshold:
-            self.market_regime = MarketRegime.BULL
-        elif self.z_score <= -z_score_threshold:
-            self.market_regime = MarketRegime.BEAR
-        elif abs(self.z_score) < z_score_threshold:
-            self.market_regime = MarketRegime.SIDEWAYS
-        else:
-            self.market_regime = MarketRegime.NONE
-
-        return self.market_regime
-
 
     
     def check_trailing_stop(self, current_price, score):
@@ -250,46 +220,6 @@ class SmartScore(Strategy):
             self.last_size = 0
 
 
-    def handle_bull_market_logic(self, score: float, current_price: float):
-        """상승장에서의 매매 전략
-        - 스코어가 buy_threshold 이상이면 매수
-        - 포지션 없어야만 매수 진행
-        """
-        has_position = self.position.size > 0
-        date_str = self.data.index[-1].strftime('%Y.%m.%d')
-
-        if score >= self.buy_threshold and not has_position:
-            available_cash = self._broker if hasattr(self._broker, "get_cash") else self._broker._cash
-            size = int(available_cash / current_price * self.buy_ratio)
-
-            if size >= 1 and (current_price * size <= available_cash):
-                self.buy(size=size)
-
-                # 🔧 평균 매수가 계산
-                if self.last_size == 0:
-                    self.avg_entry_price = current_price
-                else:
-                    self.avg_entry_price = (
-                        (self.avg_entry_price * self.last_size) + (current_price * size)
-                    ) / (self.last_size + size)
-
-                self.last_size += size
-                market_value = self.last_size * current_price
-
-                trading_log = {
-                    "date": date_str,
-                    "action": "buy",
-                    "score": round(score, 2),
-                    "price": round(current_price, 2),
-                    "size": size,
-                    "avg_price": round(self.avg_entry_price, 2),
-                    "roi": "-",
-                    "market_value": round(market_value, 2),
-                    "market_regime": self.market_regime.value
-                }
-                self.trading_logs.append(trading_log)
-
-
     def next(self):
         """ 일별 매매 로직
         - 매수/매도 조건을 만족할 경우 매매 실행.
@@ -299,28 +229,35 @@ class SmartScore(Strategy):
         - 매도 후 매수 평균가 계산
         - 매매 기록은 trading_log 테이블에 저장.
         """
+        # ✅ 1단계: 시장 판단 기반 매매 시도(구현 필요)
+        date = self.data.index[-1]
+        directon_score = 0.0
+        trend_score = 0.0
+        noise_score, atr, std, z_score = MarketRegimeEvaluator(self.data).score_noise(date)
+        if noise_score == 1:
+            self.market_regime = MarketRegime.VOLATILE
+        else:
+            self.market_regime = MarketRegime.NONE
+        
+        regime_log = {
+            "date": self.data.index[-1].strftime('%Y.%m.%d'),
+            "market_regime": self.market_regime.value,
+            "direction_score": round(directon_score, 2),
+            "trend_score": round(trend_score, 2),
+            "noise_score": noise_score,
+            "atr": round(atr, 2),
+            "std": round(std, 2),
+            "z-score": round(z_score, 2)
+        }
+        self.regime_logs.append(regime_log)  # 레짐 로그 추가
+
 
         # 1. 스코어 계산
         score = self.calculate_score()   # 스코어 계산
 
-        # 2. 시장 레짐 판단
-        self.get_market_regime()
-
         current_price = self.data.Close[-1] # 현재가
         has_position = self.position.size > 0   # 포지션 보유 여부
         date_str = self.data.index[-1].strftime('%Y.%m.%d') # 날짜 포맷 변환
-
-        # ✅ 1단계: 시장 판단 기반 매매 시도
-        if self.market_regime == MarketRegime.BULL:
-            self.handle_bull_market_logic(score, current_price)
-        # elif self.market_regime == MarketRegime.SIDEWAYS:
-        #     self.handle_sideways_market_logic(score, current_price)
-        # elif self.market_regime == MarketRegime.BEAR:
-        #     self.handle_bear_market_logic(score, current_price)
-        # elif self.market_regime == MarketRegime.VOLATILE:
-        #     self.handle_volatile_market_logic(score, current_price)
-        else:
-            pass  # 혹시 모를 init/none 등 기본 처리
 
         # ✅ 손절 / 익절 조건
         if has_position:
@@ -334,6 +271,9 @@ class SmartScore(Strategy):
         
         if self.trading_logs:
             sqlite_logger.insert_many(LOG_TABLES["trade"], self.trading_logs)
+
+        if self.regime_logs:
+            sqlite_logger.insert_many(LOG_TABLES["regime"], self.regime_logs)
 
         if sqlite_logger._in_transaction:
             sqlite_logger.commit()

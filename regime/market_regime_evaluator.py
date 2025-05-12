@@ -102,12 +102,15 @@ class MarketRegimeEvaluator:
             1: 노이즈가 감지된 경우(VOLATILE 가능성)
             0: 노이즈가 감지되지 않은 경우(안정적 판단 가능)
         """
+        is_noise = 0            # 노이즈 감지 여부
         high = self.df["High"]
         low = self.df["Low"]
         close = self.df["Close"]
 
+        # 1. ATR 계산
         atr_series = ATR(high, low, close, window)
 
+        # 2. ATR 슬라이스
         if len(atr_series) < window or date not in atr_series.index:
             return 0    # 판단 불가 -> 일단 안정으로 간주
         
@@ -115,15 +118,16 @@ class MarketRegimeEvaluator:
         if idx < window:
             return 0    # 데이터 부족 -> 판단 불가
         
-        # 최근 window 기간의 ATR 슬라이스
         atr_window = atr_series.iloc[idx - window + 1 : idx + 1]
         latest_atr = atr_window.iloc[-1]
-        mean = atr_window.mean()
 
+        # 3. ATR 표준편차 & z-score 계산
+        mean = atr_window.mean()
         std = atr_window.std()
         z_score = (latest_atr - mean) / std if std != 0 else 0
 
-        # 노이즈 판단
+        # 4. 노이즈 판단
         if latest_atr >= std_threshold or abs(z_score) >= z_score_threshold:
-            return 1 # 노이즈 감지
-        return 0    # 노이즈 없음
+            is_noise = 1
+        
+        return is_noise, latest_atr, std, z_score
