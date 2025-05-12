@@ -67,7 +67,7 @@ class SmartScore(Strategy):
             "RSI": 0.0,
             "VOL": 0.0,
             "TOTAL": 0.0,
-            "current price": 0.0,
+            "current_price": 0.0,
             "market_regime": "none"             # TEXT
         }
         example_trading_log = {
@@ -89,7 +89,9 @@ class SmartScore(Strategy):
             "noise_score": 0.0,              # REAL
             "atr": 0.0,                       # REAL
             "std": 0.0,                       # REAL
-            "z-score": 0.0,                   # REA
+            "z_score": 0.0,                   # REAL
+            "dynamic_atr_90pct": 0.0,                 # REAL
+            "dynamic_zscore_threshold": 0.0        # REAL
         }
         # 테이블 생성
         sqlite_logger._ensure_table(LOG_TABLES["score"], example_score_log)  
@@ -143,7 +145,7 @@ class SmartScore(Strategy):
             "RSI": round(rsi_score, 2),
             "VOL": round(volume_score, 2),
             "TOTAL": round(score, 2),
-            "current price": round(current_price, 2),
+            "current_price": round(current_price, 2),
             "market_regime": self.market_regime.value,
         }
         self.score_logs.append(score_log)  # 스코어 로그 추가
@@ -237,7 +239,7 @@ class SmartScore(Strategy):
         date = self.data.index[-1]
         directon_score = 0.0
         trend_score = 0.0
-        noise_score, latest_atr, std, z_score = self.regime_evaluator.score_noise(date, window=14)
+        noise_score, latest_atr, std, z_score, dynamic_std_threshold, dynamic_zscore_threshold = self.regime_evaluator.score_noise(date, window=14)
         if noise_score == 1:
             self.market_regime = MarketRegime.VOLATILE
         else:
@@ -251,7 +253,9 @@ class SmartScore(Strategy):
             "noise_score": noise_score,
             "atr": round(latest_atr, 2),
             "std": round(std, 2),
-            "z-score": round(z_score, 2)
+            "z_score": round(z_score, 2),
+            "dynamic_atr_90pct": round(dynamic_std_threshold, 2),
+            "dynamic_zscore_threshold": round(dynamic_zscore_threshold, 2),
         }
         self.regime_logs.append(regime_log)  # 레짐 로그 추가
 
