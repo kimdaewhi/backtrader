@@ -1,6 +1,6 @@
 import pandas as pd
 
-def ATR(high: pd.Series, low: pd.Series, close: pd.Series, window: int = 14) -> pd.Series:
+def ATR(high, low, close, window: int = 14) -> pd.Series:
     """
     ATR (Average True Range) 계산
     :param high: 고가 시리즈
@@ -9,6 +9,10 @@ def ATR(high: pd.Series, low: pd.Series, close: pd.Series, window: int = 14) -> 
     :param window: ATR 계산 윈도우 (기본값 14)
     :return: ATR 값 시리즈
     """
+    high = pd.Series(high)
+    low = pd.Series(low)
+    close = pd.Series(close)
+    
     # 이전 종가
     prev_close = close.shift(1)
 

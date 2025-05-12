@@ -3,7 +3,7 @@ import numpy as np
 from backtesting import Strategy
 
 from utils.logger_sqlite import sqlite_logger, LOG_TABLES
-from indicators.base import EMA, SMA
+from indicators.base import EMA, SMA, ATR
 from indicators.advanced import ADX, RSI, MACD_and_signal
 from scoring.score_factors import (
     calc_ema_adx_score,
@@ -46,6 +46,14 @@ class SmartScore(Strategy):
         self.adx = self.I(ADX, self.data.High, self.data.Low, self.data.Close, period=14, overlay=False)   # ADX 계산
         self.rsi = self.I(RSI, self.data.Close, overlay=False)                                  # RSI 계산
         self.macd, self.signal = self.I(MACD_and_signal, self.data.Close, name='MACD', overlay=False)  # MACD 계산
+        self.atr = self.I(ATR, self.data.High, self.data.Low, self.data.Close, window=14, overlay=False)  # ATR 계산
+        self.atr_series = pd.Series(self.atr, index=self.data.index)
+        # MarketRegimeEvaluator에서 사용할 인디케이터 설정
+        self.regime_evaluator = MarketRegimeEvaluator(
+            indicators={
+                "atr": self.atr_series,
+            }
+        )
 
         self.score_logs = []  # 스코어 로그 초기화
         self.trading_logs = []  # 매매 로그 초기화
@@ -60,8 +68,6 @@ class SmartScore(Strategy):
             "VOL": 0.0,
             "TOTAL": 0.0,
             "current price": 0.0,
-            "σ (std)": 0.0,
-            "z-score": 0.0,
             "market_regime": "none"             # TEXT
         }
         example_trading_log = {
@@ -138,8 +144,6 @@ class SmartScore(Strategy):
             "VOL": round(volume_score, 2),
             "TOTAL": round(score, 2),
             "current price": round(current_price, 2),
-            "σ (std)": round(self.std, 2) if self.std is not None else "-",
-            "z-score": round(self.z_score, 2) if self.z_score is not None else "-",
             "market_regime": self.market_regime.value,
         }
         self.score_logs.append(score_log)  # 스코어 로그 추가
@@ -229,11 +233,11 @@ class SmartScore(Strategy):
         - 매도 후 매수 평균가 계산
         - 매매 기록은 trading_log 테이블에 저장.
         """
-        # ✅ 1단계: 시장 판단 기반 매매 시도(구현 필요)
+        # ✅ 1단계: 시장 판단
         date = self.data.index[-1]
         directon_score = 0.0
         trend_score = 0.0
-        noise_score, atr, std, z_score = MarketRegimeEvaluator(self.data).score_noise(date)
+        noise_score, latest_atr, std, z_score = self.regime_evaluator.score_noise(date, window=14)
         if noise_score == 1:
             self.market_regime = MarketRegime.VOLATILE
         else:
@@ -245,7 +249,7 @@ class SmartScore(Strategy):
             "direction_score": round(directon_score, 2),
             "trend_score": round(trend_score, 2),
             "noise_score": noise_score,
-            "atr": round(atr, 2),
+            "atr": round(latest_atr, 2),
             "std": round(std, 2),
             "z-score": round(z_score, 2)
         }
